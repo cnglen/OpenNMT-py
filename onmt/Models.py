@@ -33,7 +33,12 @@ class EncoderBase(nn.Module):
           E-->F
           E-->G
     """
+
     def _check_args(self, input, lengths=None, hidden=None):
+        """check the args of forward() <- __call__()
+        input: s_len x n_batch x n_feats, padded
+        lengths: actural length for each senquence in current batch `[n_batch]`
+        """
         s_len, n_batch, n_feats = input.size()
         if lengths is not None:
             n_batch_, = lengths.size()
@@ -50,9 +55,9 @@ class EncoderBase(nn.Module):
 
         Returns:k
             (tuple of :obj:`FloatTensor`, :obj:`FloatTensor`):
-                * final encoder state, used to initialize decoder
-                   `[layers x batch x hidden]`
+                * final encoder state, used to initialize decoder `[layers x batch x hidden]`
                 * contexts for attention, `[src_len x batch x hidden]`
+            与torch.nn.RNN()类似，返回output `[seq_len x batch x hidden]`, fintal_state `[layer x batch x hidden]`
         """
         raise NotImplementedError
 
@@ -64,6 +69,7 @@ class MeanEncoder(EncoderBase):
        num_layers (int): number of replicated layers
        embeddings (:obj:`onmt.modules.Embeddings`): embedding module to use
     """
+
     def __init__(self, num_layers, embeddings):
         super(MeanEncoder, self).__init__()
         self.num_layers = num_layers
@@ -91,6 +97,7 @@ class RNNEncoder(EncoderBase):
        dropout (float) : dropout value for :obj:`nn.Dropout`
        embeddings (:obj:`onmt.modules.Embeddings`): embedding module to use
     """
+
     def __init__(self, rnn_type, bidirectional, num_layers,
                  hidden_size, dropout=0.0, embeddings=None):
         super(RNNEncoder, self).__init__()
@@ -107,18 +114,18 @@ class RNNEncoder(EncoderBase):
             # SRU doesn't support PackedSequence.
             self.no_pack_padded_seq = True
             self.rnn = onmt.modules.SRU(
-                    input_size=embeddings.embedding_size,
-                    hidden_size=hidden_size,
-                    num_layers=num_layers,
-                    dropout=dropout,
-                    bidirectional=bidirectional)
+                input_size=embeddings.embedding_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                dropout=dropout,
+                bidirectional=bidirectional)
         else:
             self.rnn = getattr(nn, rnn_type)(
-                    input_size=embeddings.embedding_size,
-                    hidden_size=hidden_size,
-                    num_layers=num_layers,
-                    dropout=dropout,
-                    bidirectional=bidirectional)
+                input_size=embeddings.embedding_size,
+                hidden_size=hidden_size,
+                num_layers=num_layers,
+                dropout=dropout,
+                bidirectional=bidirectional)
 
     def forward(self, input, lengths=None, hidden=None):
         "See :obj:`EncoderBase.forward()`"
@@ -187,6 +194,7 @@ class RNNDecoderBase(nn.Module):
        dropout (float) : dropout value for :obj:`nn.Dropout`
        embeddings (:obj:`onmt.modules.Embeddings`): embedding module to use
     """
+
     def __init__(self, rnn_type, bidirectional_encoder, num_layers,
                  hidden_size, attn_type="general",
                  coverage_attn=False, context_gate=None,
@@ -284,7 +292,7 @@ class RNNDecoderBase(nn.Module):
         if isinstance(enc_hidden, tuple):  # LSTM
             return RNNDecoderState(context, self.hidden_size,
                                    tuple([self._fix_enc_hidden(enc_hidden[i])
-                                         for i in range(len(enc_hidden))]))
+                                          for i in range(len(enc_hidden))]))
         else:  # GRU
             return RNNDecoderState(context, self.hidden_size,
                                    self._fix_enc_hidden(enc_hidden))
@@ -305,6 +313,7 @@ class StdRNNDecoder(RNNDecoderBase):
     Implemented without input_feeding and currently with no `coverage_attn`
     or `copy_attn` support.
     """
+
     def _run_forward_pass(self, input, context, state, context_lengths=None):
         """
         Private helper for running the specific RNN forward pass.
@@ -379,9 +388,9 @@ class StdRNNDecoder(RNNDecoderBase):
         # Use pytorch version when available.
         if rnn_type == "SRU":
             return onmt.modules.SRU(
-                    input_size, hidden_size,
-                    num_layers=num_layers,
-                    dropout=dropout)
+                input_size, hidden_size,
+                num_layers=num_layers,
+                dropout=dropout)
 
         return getattr(nn, rnn_type)(
             input_size, hidden_size,
@@ -491,7 +500,7 @@ class InputFeedRNNDecoder(RNNDecoderBase):
     def _build_rnn(self, rnn_type, input_size,
                    hidden_size, num_layers, dropout):
         assert not rnn_type == "SRU", "SRU doesn't support input feed! " \
-                "Please set -input_feed 0!"
+            "Please set -input_feed 0!"
         if rnn_type == "LSTM":
             stacked_cell = onmt.modules.StackedLSTM
         else:
@@ -517,6 +526,7 @@ class NMTModel(nn.Module):
       decoder (:obj:`RNNDecoderBase`): a decoder object
       multi<gpu (bool): setup for multigpu support
     """
+
     def __init__(self, encoder, decoder, multigpu=False):
         self.multigpu = multigpu
         super(NMTModel, self).__init__()
@@ -566,6 +576,7 @@ class DecoderState(object):
 
     Modules need to implement this to utilize beam search decoding.
     """
+
     def detach(self):
         for h in self._all:
             if h is not None:
