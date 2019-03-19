@@ -80,6 +80,17 @@ def build_save_dataset(corpus_type, fields, src_reader, tgt_reader, opt):
 
 
 def build_save_vocab(train_dataset, fields, opt):
+    """
+    build vocab for `fields` of `train_dataset` speicified by `opt`
+
+    args:
+      train_dataset:
+      fields:
+      opt:
+
+    returns:
+      fields
+    """
     fields = inputters.build_vocab(
         train_dataset, fields, opt.data_type, opt.share_vocab,
         opt.src_vocab, opt.src_vocab_size, opt.src_words_min_frequency,
