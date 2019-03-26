@@ -7,6 +7,7 @@ import torch
 from torchtext.data import Dataset as TorchtextDataset
 from torchtext.data import Example
 from torchtext.vocab import Vocab
+from tqdm import tqdm
 
 
 def _join_dicts(*args):
@@ -116,6 +117,11 @@ class Dataset(TorchtextDataset):
         # self.src_vocabs is used in collapse_copy_scores and Translator.py
         self.src_vocabs = []
         examples = []
+
+        tmp_read_iters = [r.read(dat[1], side=dat[0], _dir=dir_) for r, dat, dir_ in zip(readers, data, dirs)]
+        total = len([1 for e in starmap(_join_dicts, zip(*tmp_read_iters))])
+        print("total={}".format(total))
+        pbar = tqdm(total=total)
         for ex_dict in starmap(_join_dicts, zip(*read_iters)):
             if can_copy:
                 src_field = fields['src']
@@ -127,6 +133,8 @@ class Dataset(TorchtextDataset):
             ex_fields = {k: [(k, v)] for k, v in fields.items() if k in ex_dict}
             ex = Example.fromdict(ex_dict, ex_fields)
             examples.append(ex)
+            pbar.update()
+        pbar.close()
 
         # fields needs to have only keys that examples have as attrs
         fields = []

@@ -56,6 +56,34 @@ class PositionalEncoding(nn.Module):
         return emb
 
 
+class FakedEmbedding(nn.Module):
+    """
+    faked embedding for continuous control signal (feature)
+
+    args:
+      dim: 1 for mlp, concat; int for sum
+      feature_merge: sum, mlp, concat
+    """
+
+    def __init__(self, feature_merge="concat", dim=1):
+        if feature_merge in ["concat", "mlp"] and dim != 1:
+            raise ValueError("dim{} must be 1 if feature_merge='sum' or 'mlp'".format(dim))
+
+        self.dim = dim
+        self.feature_merge = feature_merge
+
+    def forward(self, x):
+        """
+        args:
+          x: (B, T)
+        returns:
+          if feature_merge==sum: (B, T, dim)
+          else: (B, T, 1)
+        """
+        y = x.unsqueeze(-1).expand(self.dim)
+        return x
+
+
 class Embeddings(nn.Module):
     """Words embeddings for encoder/decoder.
 
@@ -118,11 +146,12 @@ class Embeddings(nn.Module):
         # Dimensions and padding for feature embedding matrices
         # (these have no effect if feat_vocab_sizes is empty)
         if feat_merge == 'sum':
-            feat_dims = [word_vec_size] * len(feat_vocab_sizes)
+            feat_dims = [word_vec_size] * len(feat_vocab_sizes)  # 如果是sum, feature_embedding和word_embedding必须相同大小
         elif feat_vec_size > 0:
             feat_dims = [feat_vec_size] * len(feat_vocab_sizes)
         else:
-            feat_dims = [int(vocab ** feat_vec_exponent) for vocab in feat_vocab_sizes]
+            feat_dims = [int(vocab ** feat_vec_exponent) if vocab > 64 else int(vocab) if vocab else 1
+                         for vocab in feat_vocab_sizes]  # 1 for continuous feature, for vocab_size<64, use vocab_size, else use vocab_size**feat_vec_exponent
         vocab_sizes.extend(feat_vocab_sizes)
         emb_dims.extend(feat_dims)
         pad_indices.extend(feat_padding_idx)
@@ -131,6 +160,14 @@ class Embeddings(nn.Module):
         # is for words. Subsequent ones are for features, if any exist.
         emb_params = zip(vocab_sizes, emb_dims, pad_indices)
         embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse) for vocab, dim, pad in emb_params]
+
+        embeddings = []
+        for vocab, dim, pad in emb_params:
+            if vocab:           # for discreate variable
+                embeddings.append(nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse))
+            else:
+                embeddings.append(FakedEmbedding(dim=dim, feature_merge=feat_merge))
+
         emb_luts = Elementwise(feat_merge, embeddings)
 
         # The final output size of word + feature vectors. This can vary

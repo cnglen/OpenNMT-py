@@ -131,8 +131,7 @@ def _feature_tokenize(
         layer (int): Which feature to extract. (Not used if there are no
             features, indicated by ``feat_delim is None``). In the
             example above, layer 2 is ``'' PLANET``.
-        truncate (int or NoneType): Restrict sequences to this length of
-            tokens.
+        truncate (int or NoneType): Restrict sequences to this length of tokens.
 
     Returns:
         List[str] of tokens.
@@ -142,15 +141,12 @@ def _feature_tokenize(
     if truncate is not None:
         tokens = tokens[:truncate]
 
-    # if feat_delim is not None:
-    #     tokens = [t.split(feat_delim)[layer] for t in tokens]
-
     delim = [e for e in [feat_delim, continuous_delim] if e is not None]  # enabled delimiter list
-    cs_split = [e for e in string if e in delim]
+    cs_split = [e for e in tokens[0] if e in delim]
     if cs_split:
         split_pattern = re.compile("|".join(delim))
+        print(tokens)
         tokens = [re.split(split_pattern, t)[layer] for t in tokens]
-
     return tokens
 
 

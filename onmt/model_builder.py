@@ -29,10 +29,10 @@ def build_embeddings(opt, text_field, for_encoder=True):
     """
     emb_dim = opt.src_word_vec_size if for_encoder else opt.tgt_word_vec_size
 
-    pad_indices = [f.vocab.stoi[f.pad_token] for _, f in text_field]
+    pad_indices = [f.vocab.stoi[f.pad_token] if f.vocab else None for _, f in text_field]
     word_padding_idx, feat_pad_indices = pad_indices[0], pad_indices[1:]
 
-    num_embs = [len(f.vocab) for _, f in text_field]
+    num_embs = [len(f.vocab) if f.vocab else None for _, f in text_field]
     num_word_embeddings, num_feat_embeddings = num_embs[0], num_embs[1:]
 
     fix_word_vecs = opt.fix_word_vecs_enc if for_encoder else opt.fix_word_vecs_dec

@@ -288,8 +288,7 @@ class Translator(object):
 
         data = inputters.Dataset(
             self.fields,
-            readers=([self.src_reader, self.tgt_reader]
-                     if tgt else [self.src_reader]),
+            readers=([self.src_reader, self.tgt_reader] if tgt else [self.src_reader]),
             data=[("src", src), ("tgt", tgt)] if tgt else [("src", src)],
             dirs=[src_dir, None] if tgt else [src_dir],
             sort_key=inputters.str2sortkey[self.data_type],
@@ -516,7 +515,7 @@ class Translator(object):
 
     def _run_encoder(self, batch):
         src, src_lengths = batch.src if isinstance(batch.src, tuple) \
-                           else (batch.src, None)
+            else (batch.src, None)
 
         enc_states, memory_bank, src_lengths = self.model.encoder(
             src, src_lengths)
