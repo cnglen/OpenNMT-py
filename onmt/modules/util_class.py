@@ -8,11 +8,9 @@ class Elementwise(nn.ModuleList):
     """
     A simple network container.
     Parameters are a list of modules.
-    Inputs are a 3d Tensor whose last dimension is the same length
-    as the list.
+    Inputs are a 3d Tensor whose last dimension is the same length as the list.
     Outputs are the result of applying modules to inputs elementwise.
-    An optional merge parameter allows the outputs to be reduced to a
-    single Tensor.
+    An optional merge parameter allows the outputs to be reduced to a single Tensor.
     """
 
     def __init__(self, merge=None, *args):
@@ -21,7 +19,14 @@ class Elementwise(nn.ModuleList):
         super(Elementwise, self).__init__(*args)
 
     def forward(self, inputs):
-        inputs_ = [feat.squeeze(2) for feat in inputs.split(1, dim=2)]
+        """
+        args:
+          input: (seqlen, batch_size, n_feature)
+
+        returns:
+          (seqlen, batch_size, ?)
+        """
+        inputs_ = [feat.squeeze(2) for feat in inputs.split(split_size=1, dim=2)]  # List[Tensor with shape (seqlen, batch_size)]
         assert len(self) == len(inputs_)
         outputs = [f(x) for f, x in zip(self, inputs_)]
         if self.merge == 'first':

@@ -20,6 +20,7 @@ from onmt.utils.logging import logger
 from onmt.inputters.text_dataset import _feature_tokenize  # noqa: F401
 from onmt.inputters.image_dataset import (  # noqa: F401
     batch_img as make_img)
+from .text_dataset import ContinuousField
 
 import gc
 
@@ -65,7 +66,9 @@ def get_fields(
     eos='</s>',
     dynamic_dict=False,
     src_truncate=None,
-    tgt_truncate=None
+    tgt_truncate=None,
+    src_train_file=None,
+    tgt_train_file=None,
 ):
     """
     Args:
@@ -80,16 +83,17 @@ def get_fields(
             for tgt.
         eos (str): Special end of sequence symbol. Only relevant
             for tgt.
-        dynamic_dict (bool): Whether or not to include source map and
-            alignment fields.
+        dynamic_dict (bool): Whether or not to include source map and alignment fields.
         src_truncate: Cut off src sequences beyond this (passed to
             ``src_data_type``'s data reader - see there for more details).
         tgt_truncate: Cut off tgt sequences beyond this (passed to
             :class:`TextDataReader` - see there for more details).
 
+        src_train_file: path of src train txt file
+        tgt_train_file: path of tgt train txt file
+
     Returns:
-        A dict mapping names to fields. These names need to match
-        the dataset example attributes.
+        A dict mapping names to fields. These names need to match the dataset example attributes.
     """
 
     assert src_data_type in ['text', 'img', 'audio'], \
@@ -106,28 +110,28 @@ def get_fields(
                         "include_lengths": True,
                         "pad": pad, "bos": None, "eos": None,
                         "truncate": src_truncate,
-                        "base_name": "src"}
+                        "base_name": "src",
+                        "train_file": src_train_file,
+                        }
     fields["src"] = fields_getters[src_data_type](**src_field_kwargs)
 
     tgt_field_kwargs = {"n_feats": n_tgt_feats,
                         "include_lengths": False,
                         "pad": pad, "bos": bos, "eos": eos,
                         "truncate": tgt_truncate,
-                        "base_name": "tgt"}
+                        "base_name": "tgt",
+                        "train_file": tgt_train_file
+                        }
     fields["tgt"] = fields_getters["text"](**tgt_field_kwargs)
 
     indices = Field(use_vocab=False, dtype=torch.long, sequential=False)
     fields["indices"] = indices
 
     if dynamic_dict:
-        src_map = Field(
-            use_vocab=False, dtype=torch.float,
-            postprocessing=make_src, sequential=False)
+        src_map = Field(use_vocab=False, dtype=torch.float, postprocessing=make_src, sequential=False)
         fields["src_map"] = src_map
 
-        align = Field(
-            use_vocab=False, dtype=torch.long,
-            postprocessing=make_tgt, sequential=False)
+        align = Field(use_vocab=False, dtype=torch.long, postprocessing=make_tgt, sequential=False)
         fields["alignment"] = align
 
     return fields
@@ -275,6 +279,9 @@ def _pad_vocab_to_multiple(vocab, multiple):
 
 
 def _build_field_vocab(field, counter, size_multiple=1, **kwargs):
+    if isinstance(field, ContinuousField):
+        field.vocab = None
+        return
     # this is basically copy-pasted from torchtext.
     all_specials = [
         field.unk_token, field.pad_token, field.init_token, field.eos_token
@@ -286,6 +293,14 @@ def _build_field_vocab(field, counter, size_multiple=1, **kwargs):
 
 
 def _load_vocab(vocab_path, name, counters):
+    """
+    load `name` from `vocab_path` and update `counters`
+
+    counters: name -> token -> ~frequency
+    returns:
+      vocab: list of tokens
+      vocab_size: [int]
+    """
     # counters changes in place
     vocab = _read_vocab_file(vocab_path, name)
     vocab_size = len(vocab)
@@ -305,7 +320,8 @@ def _build_fv_from_multifield(multifield, counters, build_fv_args,
             counters[name],
             size_multiple=size_multiple,
             **build_fv_args[name])
-        logger.info(" * %s vocab size: %d." % (name, len(field.vocab)))
+        if field.vocab:
+            logger.info(" * %s vocab size: %d." % (name, len(field.vocab)))
 
 
 def build_vocab(train_dataset_files, fields, data_type, share_vocab,
@@ -350,14 +366,12 @@ def build_vocab(train_dataset_files, fields, data_type, share_vocab,
 
     # Load vocabulary
     if src_vocab_path:
-        src_vocab, src_vocab_size = _load_vocab(
-            src_vocab_path, "src", counters)
+        src_vocab, src_vocab_size = _load_vocab(src_vocab_path, "src", counters)
     else:
         src_vocab = None
 
     if tgt_vocab_path:
-        tgt_vocab, tgt_vocab_size = _load_vocab(
-            tgt_vocab_path, "tgt", counters)
+        tgt_vocab, tgt_vocab_size = _load_vocab(tgt_vocab_path, "tgt", counters)
     else:
         tgt_vocab = None
 
@@ -373,8 +387,7 @@ def build_vocab(train_dataset_files, fields, data_type, share_vocab,
                     all_data = [getattr(ex, name, None)]
                 else:
                     all_data = getattr(ex, name)
-                for (sub_n, sub_f), fd in zip(
-                        f_iter, all_data):
+                for (sub_n, sub_f), fd in zip(f_iter, all_data):
                     has_vocab = (sub_n == 'src' and src_vocab) or \
                                 (sub_n == 'tgt' and tgt_vocab)
                     if sub_f.sequential and not has_vocab:
@@ -391,10 +404,8 @@ def build_vocab(train_dataset_files, fields, data_type, share_vocab,
             gc.collect()
 
     build_fv_args = defaultdict(dict)
-    build_fv_args["src"] = dict(
-        max_size=src_vocab_size, min_freq=src_words_min_frequency)
-    build_fv_args["tgt"] = dict(
-        max_size=tgt_vocab_size, min_freq=tgt_words_min_frequency)
+    build_fv_args["src"] = dict(max_size=src_vocab_size, min_freq=src_words_min_frequency)
+    build_fv_args["tgt"] = dict(max_size=tgt_vocab_size, min_freq=tgt_words_min_frequency)
     tgt_multifield = fields["tgt"]
     _build_fv_from_multifield(
         tgt_multifield,
@@ -450,6 +461,9 @@ def _read_vocab_file(vocab_path, tag):
             contain whitespace (else only before the whitespace
             is considered).
         tag (str): Used for logging which vocab is being read.
+
+    Returns:
+      list of tokens
     """
 
     logger.info("Loading {} vocabulary from {}".format(tag, vocab_path))

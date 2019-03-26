@@ -23,6 +23,9 @@ def _check_save_model_path(opt):
 
 
 def _tally_parameters(model):
+    """
+    统计model中的参数数量
+    """
     enc = 0
     dec = 0
     for name, param in model.named_parameters():
@@ -34,21 +37,23 @@ def _tally_parameters(model):
 
 
 def configure_process(opt, device_id):
+    """
+    args:
+      device_id: >=0, gpu id; <0, only cpu
+    """
     if device_id >= 0:
         torch.cuda.set_device(device_id)
     set_random_seed(opt.seed, device_id >= 0)
 
 
 def main(opt, device_id):
-    # NOTE: It's important that ``opt`` has been validated and updated
-    # at this point.
+    # NOTE: It's important that ``opt`` has been validated and updated at this point.
     configure_process(opt, device_id)
     init_logger(opt.log_file)
     # Load checkpoint if we resume from a previous training.
     if opt.train_from:
         logger.info('Loading checkpoint from %s' % opt.train_from)
-        checkpoint = torch.load(opt.train_from,
-                                map_location=lambda storage, loc: storage)
+        checkpoint = torch.load(opt.train_from, map_location=lambda storage, loc: storage)
 
         model_opt = ArgumentParser.ckpt_model_opts(checkpoint["opt"])
         ArgumentParser.update_model_opts(model_opt)
@@ -63,8 +68,7 @@ def main(opt, device_id):
     # check for code where vocab is saved instead of fields
     # (in the future this will be done in a smarter way)
     if old_style_vocab(vocab):
-        fields = load_old_vocab(
-            vocab, opt.model_type, dynamic_dict=opt.copy_attn)
+        fields = load_old_vocab(vocab, opt.model_type, dynamic_dict=opt.copy_attn)
     else:
         fields = vocab
 
@@ -93,12 +97,10 @@ def main(opt, device_id):
     # Build model saver
     model_saver = build_model_saver(model_opt, opt, model, fields, optim)
 
-    trainer = build_trainer(
-        opt, device_id, model, fields, optim, model_saver=model_saver)
+    trainer = build_trainer(opt, device_id, model, fields, optim, model_saver=model_saver)
 
     train_iter = build_dataset_iter("train", fields, opt)
-    valid_iter = build_dataset_iter(
-        "valid", fields, opt, is_train=False)
+    valid_iter = build_dataset_iter("valid", fields, opt, is_train=False)
 
     if len(opt.gpu_ranks):
         logger.info('Starting training on GPU: %s' % opt.gpu_ranks)

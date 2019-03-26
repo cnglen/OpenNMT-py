@@ -14,7 +14,7 @@ from onmt.utils.parse import ArgumentParser
 
 def main(opt):
     ArgumentParser.validate_train_opts(opt)
-    ArgumentParser.update_model_opts(opt)
+    ArgumentParser.update_model_opts(opt)  # overwrite rnn_size/layers/word_vec_size for enc/dec if necessary
     ArgumentParser.validate_model_opts(opt)
 
     nb_gpu = len(opt.gpu_ranks)
@@ -27,8 +27,7 @@ def main(opt):
         # Train with multiprocessing.
         procs = []
         for device_id in range(nb_gpu):
-            procs.append(mp.Process(target=run, args=(
-                opt, device_id, error_queue, ), daemon=True))
+            procs.append(mp.Process(target=run, args=(opt, device_id, error_queue, ), daemon=True))
             procs[device_id].start()
             logger.info(" Starting process pid: %d  " % procs[device_id].pid)
             error_handler.add_child(procs[device_id].pid)
@@ -46,8 +45,7 @@ def run(opt, device_id, error_queue):
     try:
         gpu_rank = onmt.utils.distributed.multi_init(opt, device_id)
         if gpu_rank != opt.gpu_ranks[device_id]:
-            raise AssertionError("An error occurred in \
-                  Distributed initialization")
+            raise AssertionError("An error occurred in Distributed initialization")
         single_main(opt, device_id)
     except KeyboardInterrupt:
         pass  # killed by parent, do nothing
@@ -104,6 +102,5 @@ def _get_parser():
 
 if __name__ == "__main__":
     parser = _get_parser()
-
     opt = parser.parse_args()
     main(opt)

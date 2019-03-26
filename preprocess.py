@@ -9,7 +9,7 @@ import sys
 import gc
 import torch
 from functools import partial
-
+import re
 from onmt.utils.logging import init_logger, logger
 from onmt.utils.misc import split_corpus
 import onmt.inputters as inputters
@@ -29,6 +29,14 @@ def check_existing_pt_files(opt):
 
 
 def build_save_dataset(corpus_type, fields, src_reader, tgt_reader, opt):
+    """
+    args:
+      corpus_type: train or valid
+      fields:
+      src_reader:
+      tgt_reader:
+      opt:
+    """
     assert corpus_type in ['train', 'valid']
 
     if corpus_type == 'train':
@@ -56,8 +64,7 @@ def build_save_dataset(corpus_type, fields, src_reader, tgt_reader, opt):
         dataset = inputters.Dataset(
             fields,
             readers=[src_reader, tgt_reader] if tgt_reader else [src_reader],
-            data=([("src", src_shard), ("tgt", tgt_shard)]
-                  if tgt_reader else [("src", src_shard)]),
+            data=([("src", src_shard), ("tgt", tgt_shard)] if tgt_reader else [("src", src_shard)]),
             dirs=[opt.src_dir, None] if tgt_reader else [opt.src_dir],
             sort_key=inputters.str2sortkey[opt.data_type],
             filter_pred=filter_pred
@@ -66,9 +73,7 @@ def build_save_dataset(corpus_type, fields, src_reader, tgt_reader, opt):
         data_path = "{:s}.{:s}.{:d}.pt".format(opt.save_data, corpus_type, i)
         dataset_paths.append(data_path)
 
-        logger.info(" * saving %sth %s data shard to %s."
-                    % (i, corpus_type, data_path))
-
+        logger.info(" * saving %sth %s data shard to %s." % (i, corpus_type, data_path))
         dataset.save(data_path)
 
         del dataset.examples
@@ -82,6 +87,8 @@ def build_save_dataset(corpus_type, fields, src_reader, tgt_reader, opt):
 def build_save_vocab(train_dataset, fields, opt):
     """
     build vocab for `fields` of `train_dataset` speicified by `opt`
+
+    对于TextMlultiField内部的所有field, 均构建vocab
 
     args:
       train_dataset:
@@ -110,10 +117,14 @@ def count_features(path):
     """
     with codecs.open(path, "r", "utf-8") as f:
         first_tok = f.readline().split(None, 1)[0]
-        return len(first_tok.split(u"￨")) - 1
+        return len(re.split(re.compile(r"￨|￫"), first_tok)) - 1
+        # return len(first_tok.split(u"￨")) - 1
 
 
 def main(opt):
+    """
+    main()
+    """
     ArgumentParser.validate_preprocess_args(opt)
     torch.manual_seed(opt.seed)
     check_existing_pt_files(opt)
@@ -121,27 +132,32 @@ def main(opt):
     init_logger(opt.log_file)
     logger.info("Extracting features...")
 
-    src_nfeats = count_features(opt.train_src) if opt.data_type == 'text' \
-        else 0
+    src_nfeats = count_features(opt.train_src) if opt.data_type == 'text' else 0
     tgt_nfeats = count_features(opt.train_tgt)  # tgt always text so far
     logger.info(" * number of source features: %d." % src_nfeats)
     logger.info(" * number of target features: %d." % tgt_nfeats)
 
     logger.info("Building `Fields` object...")
+    # {"src": src_field(MultiTextField), "tgt": tgt_field(TextMultiField), "indices": indices_field(Field)}
     fields = inputters.get_fields(
         opt.data_type,
         src_nfeats,
         tgt_nfeats,
         dynamic_dict=opt.dynamic_dict,
         src_truncate=opt.src_seq_length_trunc,
-        tgt_truncate=opt.tgt_seq_length_trunc)
+        tgt_truncate=opt.tgt_seq_length_trunc,
+        src_train_file=opt.train_src,
+        tgt_train_file=opt.train_tgt,
+    )
+
+    # import ipdb
+    # ipdb.set_trace()
 
     src_reader = inputters.str2reader[opt.data_type].from_opt(opt)
     tgt_reader = inputters.str2reader["text"].from_opt(opt)
 
     logger.info("Building & saving training data...")
-    train_dataset_files = build_save_dataset(
-        'train', fields, src_reader, tgt_reader, opt)
+    train_dataset_files = build_save_dataset('train', fields, src_reader, tgt_reader, opt)
 
     if opt.valid_src and opt.valid_tgt:
         logger.info("Building & saving validation data...")

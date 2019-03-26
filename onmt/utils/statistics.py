@@ -74,8 +74,7 @@ class Statistics(object):
 
         Args:
             stat: another statistic object
-            update_n_src_words(bool): whether to update (sum) `n_src_words`
-                or not
+            update_n_src_words(bool): whether to update (sum) `n_src_words` or not
 
         """
         self.loss += stat.loss
@@ -114,8 +113,7 @@ class Statistics(object):
         if num_steps > 0:
             step_fmt = "%s/%5d" % (step_fmt, num_steps)
         logger.info(
-            ("Step %s; acc: %6.2f; ppl: %5.2f; xent: %4.2f; " +
-             "lr: %7.5f; %3.0f/%3.0f tok/s; %6.0f sec")
+            ("Step %s; acc: %6.2f; ppl: %5.2f; xent: %4.2f; lr: %7.5f; %3.0f/%3.0f tok/s; %6.0f sec")
             % (step_fmt,
                self.accuracy(),
                self.ppl(),

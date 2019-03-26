@@ -6,11 +6,8 @@ from onmt.models.sru import CheckSRU
 
 
 def config_opts(parser):
-    parser.add('-config', '--config', required=False,
-               is_config_file_arg=True, help='config file path')
-    parser.add('-save_config', '--save_config', required=False,
-               is_write_out_config_file_arg=True,
-               help='config file save path')
+    parser.add('-config', '--config', required=False, is_config_file_arg=True, help='config file path')
+    parser.add('-save_config', '--save_config', required=False, is_write_out_config_file_arg=True, help='config file save path')
 
 
 def model_opts(parser):
@@ -238,44 +235,29 @@ def preprocess_opts(parser):
               type=int, default=1,
               help="Make the vocabulary size a multiple of this value")
 
-    group.add('--src_words_min_frequency',
-              '-src_words_min_frequency', type=int, default=0)
-    group.add('--tgt_words_min_frequency',
-              '-tgt_words_min_frequency', type=int, default=0)
+    group.add('--src_words_min_frequency', '-src_words_min_frequency', type=int, default=0)
+    group.add('--tgt_words_min_frequency', '-tgt_words_min_frequency', type=int, default=0)
 
-    group.add('--dynamic_dict', '-dynamic_dict', action='store_true',
-              help="Create dynamic dictionaries")
-    group.add('--share_vocab', '-share_vocab', action='store_true',
-              help="Share source and target vocabulary")
+    group.add('--dynamic_dict', '-dynamic_dict', action='store_true', help="Create dynamic dictionaries")
+    group.add('--share_vocab', '-share_vocab', action='store_true', help="Share source and target vocabulary")
 
     # Truncation options, for text corpus
     group = parser.add_argument_group('Pruning')
-    group.add('--src_seq_length', '-src_seq_length', type=int, default=50,
-              help="Maximum source sequence length")
-    group.add('--src_seq_length_trunc', '-src_seq_length_trunc',
-              type=int, default=None,
-              help="Truncate source sequence length.")
-    group.add('--tgt_seq_length', '-tgt_seq_length', type=int, default=50,
-              help="Maximum target sequence length to keep.")
-    group.add('--tgt_seq_length_trunc', '-tgt_seq_length_trunc',
-              type=int, default=None,
-              help="Truncate target sequence length.")
+    group.add('--src_seq_length', '-src_seq_length', type=int, default=50, help="Maximum source sequence length")
+    group.add('--src_seq_length_trunc', '-src_seq_length_trunc', type=int, default=None, help="Truncate source sequence length.")
+    group.add('--tgt_seq_length', '-tgt_seq_length', type=int, default=50, help="Maximum target sequence length to keep.")
+    group.add('--tgt_seq_length_trunc', '-tgt_seq_length_trunc', type=int, default=None, help="Truncate target sequence length.")
     group.add('--lower', '-lower', action='store_true', help='lowercase data')
-    group.add('--filter_valid', '-filter_valid', action='store_true',
-              help='Filter validation data by src and/or tgt length')
+    group.add('--filter_valid', '-filter_valid', action='store_true', help='Filter validation data by src and/or tgt length')
 
     # Data processing options
     group = parser.add_argument_group('Random')
-    group.add('--shuffle', '-shuffle', type=int, default=0,
-              help="Shuffle data")
-    group.add('--seed', '-seed', type=int, default=3435,
-              help="Random seed")
+    group.add('--shuffle', '-shuffle', type=int, default=0, help="Shuffle data")
+    group.add('--seed', '-seed', type=int, default=3435, help="Random seed")
 
     group = parser.add_argument_group('Logging')
-    group.add('--report_every', '-report_every', type=int, default=100000,
-              help="Report status every this many sentences")
-    group.add('--log_file', '-log_file', type=str, default="",
-              help="Output logs to a file under this path.")
+    group.add('--report_every', '-report_every', type=int, default=100000, help="Report status every this many sentences")
+    group.add('--log_file', '-log_file', type=str, default="", help="Output logs to a file under this path.")
     group.add('--log_file_level', '-log_file_level', type=str,
               action=StoreLoggingLevelAction,
               choices=StoreLoggingLevelAction.CHOICES,
@@ -283,21 +265,14 @@ def preprocess_opts(parser):
 
     # Options most relevant to speech
     group = parser.add_argument_group('Speech')
-    group.add('--sample_rate', '-sample_rate', type=int, default=16000,
-              help="Sample rate.")
-    group.add('--window_size', '-window_size', type=float, default=.02,
-              help="Window size for spectrogram in seconds.")
-    group.add('--window_stride', '-window_stride', type=float, default=.01,
-              help="Window stride for spectrogram in seconds.")
-    group.add('--window', '-window', default='hamming',
-              help="Window type for spectrogram generation.")
+    group.add('--sample_rate', '-sample_rate', type=int, default=16000, help="Sample rate.")
+    group.add('--window_size', '-window_size', type=float, default=.02, help="Window size for spectrogram in seconds.")
+    group.add('--window_stride', '-window_stride', type=float, default=.01, help="Window stride for spectrogram in seconds.")
+    group.add('--window', '-window', default='hamming', help="Window type for spectrogram generation.")
 
     # Option most relevant to image input
-    group.add('--image_channel_size', '-image_channel_size',
-              type=int, default=3,
-              choices=[3, 1],
-              help="Using grayscale image can training "
-                   "model faster and smaller")
+    group.add('--image_channel_size', '-image_channel_size', type=int, default=3, choices=[3, 1],
+              help="Using grayscale image can training model faster and smaller")
 
 
 def train_opts(parser):

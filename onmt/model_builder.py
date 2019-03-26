@@ -35,8 +35,7 @@ def build_embeddings(opt, text_field, for_encoder=True):
     num_embs = [len(f.vocab) for _, f in text_field]
     num_word_embeddings, num_feat_embeddings = num_embs[0], num_embs[1:]
 
-    fix_word_vecs = opt.fix_word_vecs_enc if for_encoder \
-        else opt.fix_word_vecs_dec
+    fix_word_vecs = opt.fix_word_vecs_enc if for_encoder else opt.fix_word_vecs_dec
 
     emb = Embeddings(
         word_vec_size=emb_dim,
@@ -81,8 +80,7 @@ def build_decoder(opt, embeddings):
 def load_test_model(opt, model_path=None):
     if model_path is None:
         model_path = opt.models[0]
-    checkpoint = torch.load(model_path,
-                            map_location=lambda storage, loc: storage)
+    checkpoint = torch.load(model_path, map_location=lambda storage, loc: storage)
 
     model_opt = ArgumentParser.ckpt_model_opts(checkpoint['opt'])
     ArgumentParser.update_model_opts(model_opt)
@@ -95,8 +93,7 @@ def load_test_model(opt, model_path=None):
     else:
         fields = vocab
 
-    model = build_base_model(model_opt, fields, use_gpu(opt), checkpoint,
-                             opt.gpu)
+    model = build_base_model(model_opt, fields, use_gpu(opt), checkpoint, opt.gpu)
     if opt.fp32:
         model.float()
     model.eval()
@@ -108,14 +105,10 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     """Build a model from opts.
 
     Args:
-        model_opt: the option loaded from checkpoint. It's important that
-            the opts have been updated and validated. See
-            :class:`onmt.utils.parse.ArgumentParser`.
-        fields (dict[str, torchtext.data.Field]):
-            `Field` objects for the model.
+        model_opt: the option loaded from checkpoint. It's important that the opts have been updated and validated. See :class:`onmt.utils.parse.ArgumentParser`.
+        fields (dict[str, torchtext.data.Field]): `Field` objects for the model.
         gpu (bool): whether to use gpu.
-        checkpoint: the model gnerated by train phase, or a resumed snapshot
-                    model from a stopped training.
+        checkpoint: the model gnerated by train phase, or a resumed snapshot model from a stopped training.
         gpu_id (int or NoneType): Which GPU to use.
 
     Returns:
@@ -125,7 +118,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     # Build embeddings.
     if model_opt.model_type == "text":
         src_field = fields["src"]
-        src_emb = build_embeddings(model_opt, src_field)
+        src_emb = build_embeddings(model_opt, src_field, for_encoder=True)
     else:
         src_emb = None
 
@@ -139,8 +132,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
     # Share the embedding matrix - preprocess with share_vocab required.
     if model_opt.share_embeddings:
         # src/tgt vocab should be the same if `-share_vocab` is specified.
-        assert src_field.base_field.vocab == tgt_field.base_field.vocab, \
-            "preprocess with -share_vocab if you use share_embeddings"
+        assert src_field.base_field.vocab == tgt_field.base_field.vocab, "preprocess with -share_vocab if you use share_embeddings"
 
         tgt_emb.word_lut.weight = src_emb.word_lut.weight
 
@@ -162,8 +154,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
         else:
             gen_func = nn.LogSoftmax(dim=-1)
         generator = nn.Sequential(
-            nn.Linear(model_opt.dec_rnn_size,
-                      len(fields["tgt"].base_field.vocab)),
+            nn.Linear(model_opt.dec_rnn_size, len(fields["tgt"].base_field.vocab)),
             Cast(torch.float32),
             gen_func
         )
@@ -185,8 +176,7 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
                        r'\1.layer_norm\2.weight', s)
             return s
 
-        checkpoint['model'] = {fix_key(k): v
-                               for k, v in checkpoint['model'].items()}
+        checkpoint['model'] = {fix_key(k): v for k, v in checkpoint['model'].items()}
         # end of patch for backward compatibility
 
         model.load_state_dict(checkpoint['model'], strict=False)
@@ -206,11 +196,9 @@ def build_base_model(model_opt, fields, gpu, checkpoint=None, gpu_id=None):
                     xavier_uniform_(p)
 
         if hasattr(model.encoder, 'embeddings'):
-            model.encoder.embeddings.load_pretrained_vectors(
-                model_opt.pre_word_vecs_enc)
+            model.encoder.embeddings.load_pretrained_vectors(model_opt.pre_word_vecs_enc)
         if hasattr(model.decoder, 'embeddings'):
-            model.decoder.embeddings.load_pretrained_vectors(
-                model_opt.pre_word_vecs_dec)
+            model.decoder.embeddings.load_pretrained_vectors(model_opt.pre_word_vecs_dec)
 
     model.generator = generator
     model.to(device)

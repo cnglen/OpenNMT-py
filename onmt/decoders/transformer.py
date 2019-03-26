@@ -27,14 +27,11 @@ class TransformerDecoderLayer(nn.Module):
         super(TransformerDecoderLayer, self).__init__()
 
         if self_attn_type == "scaled-dot":
-            self.self_attn = MultiHeadedAttention(
-                heads, d_model, dropout=dropout,
-                max_relative_positions=max_relative_positions)
+            self.self_attn = MultiHeadedAttention(heads, d_model, dropout=dropout, max_relative_positions=max_relative_positions)
         elif self_attn_type == "average":
             self.self_attn = AverageAttention(d_model, dropout=dropout)
 
-        self.context_attn = MultiHeadedAttention(
-            heads, d_model, dropout=dropout)
+        self.context_attn = MultiHeadedAttention(heads, d_model, dropout=dropout)
         self.feed_forward = PositionwiseFeedForward(d_model, d_ff, dropout)
         self.layer_norm_1 = nn.LayerNorm(d_model, eps=1e-6)
         self.layer_norm_2 = nn.LayerNorm(d_model, eps=1e-6)
@@ -131,8 +128,8 @@ class TransformerDecoder(DecoderBase):
 
         self.transformer_layers = nn.ModuleList(
             [TransformerDecoderLayer(d_model, heads, d_ff, dropout,
-             self_attn_type=self_attn_type,
-             max_relative_positions=max_relative_positions)
+                                     self_attn_type=self_attn_type,
+                                     max_relative_positions=max_relative_positions)
              for i in range(num_layers)])
 
         # previously, there was a GlobalAttention module here for copy

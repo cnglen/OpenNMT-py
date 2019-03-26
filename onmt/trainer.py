@@ -34,8 +34,7 @@ def build_trainer(opt, device_id, model, fields, optim, model_saver=None):
 
     tgt_field = dict(fields)["tgt"].base_field
     train_loss = onmt.utils.loss.build_loss_compute(model, tgt_field, opt)
-    valid_loss = onmt.utils.loss.build_loss_compute(
-        model, tgt_field, opt, train=False)
+    valid_loss = onmt.utils.loss.build_loss_compute(model, tgt_field, opt, train=False)
 
     trunc_size = opt.truncated_decoder  # Badly named...
     shard_size = opt.max_generator_batches if opt.model_dtype == 'fp32' else 0
@@ -146,7 +145,7 @@ class Trainer(object):
             self.moving_average = copy_params
         else:
             average_decay = max(self.average_decay,
-                                1 - (step + 1)/(step + 10))
+                                1 - (step + 1) / (step + 10))
             for (i, avg), cpt in zip(enumerate(self.moving_average),
                                      self.model.parameters()):
                 self.moving_average[i] = \
@@ -177,60 +176,43 @@ class Trainer(object):
         if valid_iter is None:
             logger.info('Start training loop without validation...')
         else:
-            logger.info('Start training loop and validate every %d steps...',
-                        valid_steps)
+            logger.info('Start training loop and validate every %d steps...', valid_steps)
 
         total_stats = onmt.utils.Statistics()
         report_stats = onmt.utils.Statistics()
         self._start_report_manager(start_time=total_stats.start_time)
 
         if self.n_gpu > 1:
-            train_iter = itertools.islice(
-                train_iter, self.gpu_rank, None, self.n_gpu)
+            train_iter = itertools.islice(train_iter, self.gpu_rank, None, self.n_gpu)
 
-        for i, (batches, normalization) in enumerate(
-                self._accum_batches(train_iter)):
+        for i, (batches, normalization) in enumerate(self._accum_batches(train_iter)):
             step = self.optim.training_step
 
             if self.gpu_verbose_level > 1:
                 logger.info("GpuRank %d: index: %d", self.gpu_rank, i)
             if self.gpu_verbose_level > 0:
-                logger.info("GpuRank %d: reduce_counter: %d \
-                            n_minibatch %d"
-                            % (self.gpu_rank, i + 1, len(batches)))
+                logger.info("GpuRank %d: reduce_counter: %d n_minibatch %d" % (self.gpu_rank, i + 1, len(batches)))
 
             if self.n_gpu > 1:
-                normalization = sum(onmt.utils.distributed
-                                    .all_gather_list
-                                    (normalization))
+                normalization = sum(onmt.utils.distributed.all_gather_list(normalization))
 
-            self._gradient_accumulation(
-                batches, normalization, total_stats,
-                report_stats)
+            self._gradient_accumulation(batches, normalization, total_stats, report_stats)
 
             if self.average_decay > 0 and i % self.average_every == 0:
                 self._update_average(step)
 
-            report_stats = self._maybe_report_training(
-                step, train_steps,
-                self.optim.learning_rate(),
-                report_stats)
+            report_stats = self._maybe_report_training(step, train_steps, self.optim.learning_rate(), report_stats)
 
             if valid_iter is not None and step % valid_steps == 0:
                 if self.gpu_verbose_level > 0:
-                    logger.info('GpuRank %d: validate step %d'
-                                % (self.gpu_rank, step))
-                valid_stats = self.validate(
-                    valid_iter, moving_average=self.moving_average)
+                    logger.info('GpuRank %d: validate step %d' % (self.gpu_rank, step))
+                valid_stats = self.validate(valid_iter, moving_average=self.moving_average)
                 if self.gpu_verbose_level > 0:
-                    logger.info('GpuRank %d: gather valid stat \
-                                step %d' % (self.gpu_rank, step))
+                    logger.info('GpuRank %d: gather valid stat step %d' % (self.gpu_rank, step))
                 valid_stats = self._maybe_gather_stats(valid_stats)
                 if self.gpu_verbose_level > 0:
-                    logger.info('GpuRank %d: report stat step %d'
-                                % (self.gpu_rank, step))
-                self._report_step(self.optim.learning_rate(),
-                                  step, valid_stats=valid_stats)
+                    logger.info('GpuRank %d: report stat step %d' % (self.gpu_rank, step))
+                self._report_step(self.optim.learning_rate(), step, valid_stats=valid_stats)
 
             if (self.model_saver is not None
                 and (save_checkpoint_steps != 0
@@ -267,7 +249,7 @@ class Trainer(object):
 
             for batch in valid_iter:
                 src, src_lengths = batch.src if isinstance(batch.src, tuple) \
-                                   else (batch.src, None)
+                    else (batch.src, None)
                 tgt = batch.tgt
 
                 # F-prop through the model.
@@ -287,8 +269,12 @@ class Trainer(object):
 
         return stats
 
-    def _gradient_accumulation(self, true_batches, normalization, total_stats,
-                               report_stats):
+    def _gradient_accumulation(self, true_batches, normalization, total_stats, report_stats):
+        """
+        - FP: calcuatel loss
+        - BP: calucuatel grad
+        - UP: update prarameters
+        """
         if self.grad_accum_count > 1:
             self.optim.zero_grad()
 
@@ -308,7 +294,7 @@ class Trainer(object):
             tgt_outer = batch.tgt
 
             bptt = False
-            for j in range(0, target_size-1, trunc_size):
+            for j in range(0, target_size - 1, trunc_size):
                 # 1. Create truncated target.
                 tgt = tgt_outer[j: j + trunc_size]
 
@@ -341,8 +327,7 @@ class Trainer(object):
                         grads = [p.grad.data for p in self.model.parameters()
                                  if p.requires_grad
                                  and p.grad is not None]
-                        onmt.utils.distributed.all_reduce_and_rescale_tensors(
-                            grads, float(1))
+                        onmt.utils.distributed.all_reduce_and_rescale_tensors(grads, float(1))
                     self.optim.step()
 
                 # If truncated, don't backprop fully.
@@ -388,8 +373,7 @@ class Trainer(object):
             return onmt.utils.Statistics.all_gather_stats(stat)
         return stat
 
-    def _maybe_report_training(self, step, num_steps, learning_rate,
-                               report_stats):
+    def _maybe_report_training(self, step, num_steps, learning_rate, report_stats):
         """
         Simple function to report training stats (if report_manager is set)
         see `onmt.utils.ReportManagerBase.report_training` for doc

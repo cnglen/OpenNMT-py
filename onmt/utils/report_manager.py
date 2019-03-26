@@ -54,8 +54,7 @@ class ReportMgrBase(object):
     def report_training(self, step, num_steps, learning_rate,
                         report_stats, multigpu=False):
         """
-        This is the user-defined batch-level traing progress
-        report function.
+        This is the user-defined batch-level traing progress report function.
 
         Args:
             step(int): current step count.
@@ -71,10 +70,8 @@ class ReportMgrBase(object):
 
         if step % self.report_every == 0:
             if multigpu:
-                report_stats = \
-                    onmt.utils.Statistics.all_gather_stats(report_stats)
-            self._report_training(
-                step, num_steps, learning_rate, report_stats)
+                report_stats = onmt.utils.Statistics.all_gather_stats(report_stats)
+            self._report_training(step, num_steps, learning_rate, report_stats)
             self.progress_step += 1
             return onmt.utils.Statistics()
         else:
@@ -93,8 +90,7 @@ class ReportMgrBase(object):
             valid_stats(Statistics): validation stats
             lr(float): current learning rate
         """
-        self._report_step(
-            lr, step, train_stats=train_stats, valid_stats=valid_stats)
+        self._report_step(lr, step, train_stats=train_stats, valid_stats=valid_stats)
 
     def _report_step(self, *args, **kwargs):
         raise NotImplementedError()
@@ -116,16 +112,13 @@ class ReportMgr(ReportMgrBase):
 
     def maybe_log_tensorboard(self, stats, prefix, learning_rate, step):
         if self.tensorboard_writer is not None:
-            stats.log_tensorboard(
-                prefix, self.tensorboard_writer, learning_rate, step)
+            stats.log_tensorboard(prefix, self.tensorboard_writer, learning_rate, step)
 
-    def _report_training(self, step, num_steps, learning_rate,
-                         report_stats):
+    def _report_training(self, step, num_steps, learning_rate, report_stats):
         """
         See base class method `ReportMgrBase.report_training`.
         """
-        report_stats.output(step, num_steps,
-                            learning_rate, self.start_time)
+        report_stats.output(step, num_steps, learning_rate, self.start_time)
 
         # Log the progress using the number of batches on the x-axis.
         self.maybe_log_tensorboard(report_stats,
