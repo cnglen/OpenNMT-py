@@ -80,7 +80,7 @@ def main(opt, device_id):
         except TypeError:
             f_iter = [(side, f)]
         for sn, sf in f_iter:
-            if sf.use_vocab:
+            if sf.vocab and sf.use_vocab:  # todo: remove sf.vocab if add use_vocab for continuous field
                 logger.info(' * %s vocab size = %d' % (sn, len(sf.vocab)))
 
     # Build model.

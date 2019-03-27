@@ -71,6 +71,9 @@ class FakedEmbedding(nn.Module):
 
         self.dim = dim
         self.feature_merge = feature_merge
+        super().__init__()
+        # from collections import OrderedDict
+        # self._parameters = OrderedDict()
 
     def forward(self, x):
         """
@@ -80,8 +83,8 @@ class FakedEmbedding(nn.Module):
           if feature_merge==sum: (B, T, dim)
           else: (B, T, 1)
         """
-        y = x.unsqueeze(-1).expand(self.dim)
-        return x
+        y = x.float().unsqueeze(-1).expand(-1, -1, self.dim)
+        return y
 
 
 class Embeddings(nn.Module):
@@ -150,7 +153,7 @@ class Embeddings(nn.Module):
         elif feat_vec_size > 0:
             feat_dims = [feat_vec_size] * len(feat_vocab_sizes)
         else:
-            feat_dims = [int(vocab ** feat_vec_exponent) if vocab > 64 else int(vocab) if vocab else 1
+            feat_dims = [int(vocab ** feat_vec_exponent) if vocab else 1
                          for vocab in feat_vocab_sizes]  # 1 for continuous feature, for vocab_size<64, use vocab_size, else use vocab_size**feat_vec_exponent
         vocab_sizes.extend(feat_vocab_sizes)
         emb_dims.extend(feat_dims)
@@ -159,7 +162,7 @@ class Embeddings(nn.Module):
         # The embedding matrix look-up tables. The first look-up table
         # is for words. Subsequent ones are for features, if any exist.
         emb_params = zip(vocab_sizes, emb_dims, pad_indices)
-        embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse) for vocab, dim, pad in emb_params]
+        # embeddings = [nn.Embedding(vocab, dim, padding_idx=pad, sparse=sparse) for vocab, dim, pad in emb_params]
 
         embeddings = []
         for vocab, dim, pad in emb_params:

@@ -346,6 +346,7 @@ class Trainer(object):
                          and p.grad is not None]
                 onmt.utils.distributed.all_reduce_and_rescale_tensors(
                     grads, float(1))
+
             self.optim.step()
 
     def _start_report_manager(self, start_time=None):

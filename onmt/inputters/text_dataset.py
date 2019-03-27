@@ -7,16 +7,18 @@ import torch
 from torchtext.data import Field, RawField
 
 from onmt.inputters.datareader_base import DataReaderBase
+from torchtext.data import Pipeline
 
 
 class ContinuousField(RawField):
     """
-    a field which contains continuous variable, such as length control signal
+    a field which contains continuous variable, such as length control signal:
+
+    只有整数支持
     """
 
     def __init__(self, preprocessing=None, postprocessing=None, is_target=False,
-                 dtype=torch.float32,
-                 device=None,
+                 dtype=torch.long,
                  init_token=None,
                  eos_token=None,
                  pad_first=False,
@@ -25,10 +27,12 @@ class ContinuousField(RawField):
                  sequential=True,
                  truncate_first=False,
                  include_lengths=False,
+                 use_vocab=False,
+                 tokenize=None,
+                 stop_words=None,
                  ):
         super().__init__(preprocessing, postprocessing, is_target)
         self.dtype = dtype
-        self.device = device
         self.init_token = init_token
         self.eos_token = eos_token
         self.pad_first = pad_first
@@ -37,6 +41,25 @@ class ContinuousField(RawField):
         self.sequential = sequential
         self.truncate_first = truncate_first
         self.include_lengths = include_lengths
+        self.use_vocab = use_vocab
+        self.tokenize = tokenize
+        self.stop_words = stop_words
+
+    def preprocess(self, x):
+        """
+        most copied from tochtext.field.preprocess
+        """
+        if (six.PY2 and isinstance(x, six.string_types)
+                and not isinstance(x, six.text_type)):
+            x = Pipeline(lambda s: six.text_type(s, encoding='utf-8'))(x)
+        if self.sequential and isinstance(x, six.text_type):
+            x = self.tokenize(x.rstrip('\n'))
+        if self.sequential and self.use_vocab and self.stop_words is not None:
+            x = [w for w in x if w not in self.stop_words]
+        if self.preprocessing is not None:
+            return self.preprocessing(x)
+
+        return x
 
     def process(self, batch, *args, **kwargs):
         """
@@ -48,7 +71,7 @@ class ContinuousField(RawField):
         returns:
           (B, T) of float tensor
         """
-        data = [[float(e) for e in example] for example in batch]
+        data = [[int(e) for e in example] for example in batch]
 
         if self.fix_length is None:
             max_len = max(len(x) for x in data)
@@ -73,7 +96,7 @@ class ContinuousField(RawField):
                     + [constant_length] * max(0, max_len - len(x)))
             lengths.append(len(padded[-1]) - max(0, max_len - len(x)))
 
-        var = torch.tensor(padded, dtype=self.dtype, device=self.device)
+        var = torch.tensor(padded, dtype=self.dtype, device=kwargs['device'])
 
         if self.sequential and not self.batch_first:
             var.t_()
@@ -197,7 +220,7 @@ class TextMultiField(RawField):
         """
 
         # batch (list(list(list))): batch_size x len(self.fields) x seq_len
-        batch_by_feat = list(zip(*batch))
+        batch_by_feat = list(zip(*batch))  # list(zip(batch[0], batch[1], batch[.])) <==> len(self.fields) x batch_size x seq_len
         base_data = self.base_field.process(batch_by_feat[0], device=device)
         if self.base_field.include_lengths:
             # lengths: batch_size
@@ -285,7 +308,9 @@ def text_fields(**kwargs):
             feat = ContinuousField(
                 init_token=bos,
                 eos_token=eos,
-                include_lengths=use_len)
+                include_lengths=use_len,
+                tokenize=tokenize,
+            )
         else:
             feat = Field(
                 init_token=bos, eos_token=eos,

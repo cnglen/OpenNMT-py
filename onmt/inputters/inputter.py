@@ -547,8 +547,7 @@ class DatasetLazyIter(object):
 
     Args:
         dataset_paths: a list containing the locations of dataset files.
-        fields (dict[str, Field]): fields dict for the
-            datasets.
+        fields (dict[str, Field]): fields dict for the datasets.
         batch_size (int): batch size.
         batch_size_fn: custom batch process function.
         device: See :class:`OrderedIterator` ``device``.
@@ -570,8 +569,7 @@ class DatasetLazyIter(object):
 
     def _iter_dataset(self, path):
         cur_dataset = torch.load(path)
-        logger.info('Loading dataset from %s, number of examples: %d' %
-                    (path, len(cur_dataset)))
+        logger.info('Loading dataset from %s, number of examples: %d' % (path, len(cur_dataset)))
         cur_dataset.fields = self.fields
         cur_iter = OrderedIterator(
             dataset=cur_dataset,

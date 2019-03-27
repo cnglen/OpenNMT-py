@@ -150,9 +150,6 @@ def main(opt):
         tgt_train_file=opt.train_tgt,
     )
 
-    # import ipdb
-    # ipdb.set_trace()
-
     src_reader = inputters.str2reader[opt.data_type].from_opt(opt)
     tgt_reader = inputters.str2reader["text"].from_opt(opt)
 
