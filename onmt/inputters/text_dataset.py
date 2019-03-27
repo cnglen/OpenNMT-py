@@ -145,7 +145,6 @@ def _feature_tokenize(
     cs_split = [e for e in tokens[0] if e in delim]
     if cs_split:
         split_pattern = re.compile("|".join(delim))
-        print(tokens)
         tokens = [re.split(split_pattern, t)[layer] for t in tokens]
     return tokens
 
