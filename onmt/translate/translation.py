@@ -51,9 +51,10 @@ class TranslationBuilder(object):
         return tokens
 
     def from_batch(self, translation_batch):
+        """
+        """
         batch = translation_batch["batch"]
-        assert(len(translation_batch["gold_score"]) ==
-               len(translation_batch["predictions"]))
+        assert(len(translation_batch["gold_score"]) == len(translation_batch["predictions"]))
         batch_size = batch.batch_size
 
         preds, pred_score, attn, gold_score, indices = list(zip(
@@ -66,12 +67,15 @@ class TranslationBuilder(object):
 
         # Sorting
         inds, perm = torch.sort(batch.indices)
+
         if self._has_text_src:
             src = batch.src[0][:, :, 0].index_select(1, perm)
         else:
             src = None
-        tgt = batch.tgt[:, :, 0].index_select(1, perm) \
-            if self.has_tgt else None
+        tgt = batch.tgt[:, :, 0].index_select(1, perm) if self.has_tgt else None
+
+        control_signal = translation_batch["control_signal"]
+        control_signal = control_signal.index_select(0, perm) if control_signal is not None else None
 
         translations = []
         for b in range(batch_size):
@@ -94,10 +98,16 @@ class TranslationBuilder(object):
                     src_vocab, src_raw,
                     tgt[1:, b] if tgt is not None else None, None)
 
+            if control_signal is not None:
+                control_signal_fields = self.fields['tgt'].fields[1:]
+                control_signal_values = control_signal[inds[b] % batch_size].cpu().numpy()
+                current_control_signal = [(name, field.vocab.itos[value]) if field.vocab else (name, value) for ((name, field), value) in zip(control_signal_fields, control_signal_values)]
+
             translation = Translation(
                 src[:, b] if src is not None else None,
                 src_raw, pred_sents, attn[b], pred_score[b],
-                gold_sent, gold_score[b]
+                gold_sent, gold_score[b],
+                control_signal=current_control_signal if control_signal is not None else None
             )
             translations.append(translation)
 
@@ -112,17 +122,16 @@ class Translation(object):
         src_raw (List[str]): Raw source words.
         pred_sents (List[List[str]]): Words from the n-best translations.
         pred_scores (List[List[float]]): Log-probs of n-best translations.
-        attns (List[FloatTensor]) : Attention distribution for each
-            translation.
+        attns (List[FloatTensor]) : Attention distribution for each translation.
         gold_sent (List[str]): Words from gold translation.
         gold_score (List[float]): Log-prob of gold translation.
+        control_signal (List[str, int?]): control signal when translation
     """
 
-    __slots__ = ["src", "src_raw", "pred_sents", "attns", "pred_scores",
-                 "gold_sent", "gold_score"]
+    __slots__ = ["src", "src_raw", "pred_sents", "attns", "pred_scores", "gold_sent", "gold_score", "control_signal"]
 
     def __init__(self, src, src_raw, pred_sents,
-                 attn, pred_scores, tgt_sent, gold_score):
+                 attn, pred_scores, tgt_sent, gold_score, control_signal=None):
         self.src = src
         self.src_raw = src_raw
         self.pred_sents = pred_sents
@@ -130,6 +139,7 @@ class Translation(object):
         self.pred_scores = pred_scores
         self.gold_sent = tgt_sent
         self.gold_score = gold_score
+        self.control_signal = control_signal
 
     def log(self, sent_number):
         """
@@ -141,6 +151,8 @@ class Translation(object):
         best_pred = self.pred_sents[0]
         best_score = self.pred_scores[0]
         pred_sent = ' '.join(best_pred)
+        if self.control_signal:
+            msg.append('CTRL SIGNAL: ' + '; '.join(['{}={}'.format(name, value) for (name, value) in self.control_signal]) + "\n")
         msg.append('PRED {}: {}\n'.format(sent_number, pred_sent))
         msg.append("PRED SCORE: {:.4f}\n".format(best_score))
 

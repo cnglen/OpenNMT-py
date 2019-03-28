@@ -628,8 +628,7 @@ def translate_opts(parser):
                    "decoded sentences")
 
     group = parser.add_argument_group('Efficiency')
-    group.add('--batch_size', '-batch_size', type=int, default=30,
-              help='Batch size')
+    group.add('--batch_size', '-batch_size', type=int, default=30, help='Batch size')
     group.add('--gpu', '-gpu', type=int, default=-1,
               help="Device to run on")
 

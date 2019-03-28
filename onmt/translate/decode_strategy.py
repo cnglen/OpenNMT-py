@@ -10,9 +10,7 @@ class DecodeStrategy(object):
         eos (int): Magic integer in output vocab.
         batch_size (int): Current batch size.
         device (torch.device or str): Device for memory bank (encoder).
-        parallel_paths (int): Decoding strategies like beam search
-            use parallel paths. Each batch is repeated ``parallel_paths``
-            times in relevant state tensors.
+        parallel_paths (int): Decoding strategies like beam search use parallel paths. Each batch is repeated ``parallel_paths`` times in relevant state tensors.
         min_length (int): Shortest acceptable generation, not counting
             begin-of-sentence or end-of-sentence.
         max_length (int): Longest acceptable sequence, not counting
@@ -39,8 +37,7 @@ class DecodeStrategy(object):
             ``inp_seq_len`` is the length of the sample (not the max
             length of all inp seqs).
         alive_seq (LongTensor): Shape ``(B x parallel_paths, step)``.
-            This sequence grows in the ``step`` axis on each call to
-            :func:`advance()`.
+            This sequence grows in the ``step`` axis on each call to :func:`advance()`.
         is_finished (ByteTensor or NoneType): Shape
             ``(B, parallel_paths)``. Initialized to ``None``.
         alive_attn (FloatTensor or NoneType): If tensor, shape is
@@ -68,12 +65,8 @@ class DecodeStrategy(object):
         self.scores = [[] for _ in range(batch_size)]
         self.attention = [[] for _ in range(batch_size)]
 
-        self.alive_seq = torch.full(
-            [batch_size * parallel_paths, 1], self.bos,
-            dtype=torch.long, device=device)
-        self.is_finished = torch.zeros(
-            [batch_size, parallel_paths],
-            dtype=torch.uint8, device=device)
+        self.alive_seq = torch.full([batch_size * parallel_paths, 1], self.bos, dtype=torch.long, device=device)
+        self.is_finished = torch.zeros([batch_size, parallel_paths], dtype=torch.uint8, device=device)
         self.alive_attn = None
 
         self.min_length = min_length

@@ -8,6 +8,7 @@ import time
 from itertools import count
 
 import torch
+import numpy as np
 
 import onmt.model_builder
 import onmt.translate.beam
@@ -23,8 +24,7 @@ def build_translator(opt, report_score=True, logger=None, out_file=None):
     if out_file is None:
         out_file = codecs.open(opt.output, 'w+', 'utf-8')
 
-    load_test_model = onmt.decoders.ensemble.load_test_model \
-        if len(opt.models) > 1 else onmt.model_builder.load_test_model
+    load_test_model = onmt.decoders.ensemble.load_test_model if len(opt.models) > 1 else onmt.model_builder.load_test_model
     fields, model, model_opt = load_test_model(opt)
 
     scorer = onmt.translate.GNMTGlobalScorer.from_opt(opt)
@@ -47,28 +47,20 @@ class Translator(object):
 
     Args:
         model (onmt.modules.NMTModel): NMT model to use for translation
-        fields (dict[str, torchtext.data.Field]): A dict
-            mapping each side to its list of name-Field pairs.
+        fields (dict[str, torchtext.data.Field]): A dict mapping each side to its list of name-Field pairs.
         src_reader (onmt.inputters.DataReaderBase): Source reader.
         tgt_reader (onmt.inputters.TextDataReader): Target reader.
         gpu (int): GPU device. Set to negative for no GPU.
         n_best (int): How many beams to wait for.
-        min_length (int): See
-            :class:`onmt.translate.decode_strategy.DecodeStrategy`.
-        max_length (int): See
-            :class:`onmt.translate.decode_strategy.DecodeStrategy`.
+        min_length (int): See :class:`onmt.translate.decode_strategy.DecodeStrategy`.
+        max_length (int): See :class:`onmt.translate.decode_strategy.DecodeStrategy`.
         beam_size (int): Number of beams.
-        random_sampling_topk (int): See
-            :class:`onmt.translate.random_sampling.RandomSampling`.
-        random_sampling_temp (int): See
-            :class:`onmt.translate.random_sampling.RandomSampling`.
-        stepwise_penalty (bool): Whether coverage penalty is applied every step
-            or not.
+        random_sampling_topk (int): See :class:`onmt.translate.random_sampling.RandomSampling`.
+        random_sampling_temp (int): See :class:`onmt.translate.random_sampling.RandomSampling`.
+        stepwise_penalty (bool): Whether coverage penalty is applied every step or not.
         dump_beam (bool): Debugging option.
-        block_ngram_repeat (int): See
-            :class:`onmt.translate.decode_strategy.DecodeStrategy`.
-        ignore_when_blocking (set or frozenset): See
-            :class:`onmt.translate.decode_strategy.DecodeStrategy`.
+        block_ngram_repeat (int): See :class:`onmt.translate.decode_strategy.DecodeStrategy`.
+        ignore_when_blocking (set or frozenset): See :class:`onmt.translate.decode_strategy.DecodeStrategy`.
         replace_unk (bool): Replace unknown token.
         data_type (str): Source data type.
         verbose (bool): Print/log every translation.
@@ -76,8 +68,7 @@ class Translator(object):
         report_rouge (bool): Print/log Rouge metric.
         report_time (bool): Print/log total time/frequency.
         copy_attn (bool): Use copy attention.
-        global_scorer (onmt.translate.GNMTGlobalScorer): Translation
-            scoring/reranking object.
+        global_scorer (onmt.translate.GNMTGlobalScorer): Translation scoring/reranking object.
         out_file (TextIO or codecs.StreamReaderWriter): Output file.
         report_score (bool) : Whether to report scores
         logger (logging.Logger or NoneType): Logger.
@@ -247,12 +238,12 @@ class Translator(object):
         else:
             print(msg)
 
-    def _gold_score(self, batch, memory_bank, src_lengths, src_vocabs,
-                    use_src_map, enc_states, batch_size, src):
+    def _gold_score(self, batch, memory_bank, src_lengths, src_vocabs, use_src_map, enc_states, batch_size, src):
+        """
+
+        """
         if "tgt" in batch.__dict__:
-            gs = self._score_target(
-                batch, memory_bank, src_lengths, src_vocabs,
-                batch.src_map if use_src_map else None)
+            gs = self._score_target(batch, memory_bank, src_lengths, src_vocabs, batch.src_map if use_src_map else None)
             self.model.decoder.init_state(src, memory_bank, enc_states)
         else:
             gs = [0] * batch_size
@@ -264,23 +255,32 @@ class Translator(object):
             tgt=None,
             src_dir=None,
             batch_size=None,
-            attn_debug=False):
+            attn_debug=False,
+            control_signal_dict=None,
+    ):
         """Translate content of ``src`` and get gold scores from ``tgt``.
 
         Args:
             src: See :func:`self.src_reader.read()`.
             tgt: See :func:`self.tgt_reader.read()`.
-            src_dir: See :func:`self.src_reader.read()` (only relevant
-                for certain types of data).
+            src_dir: See :func:`self.src_reader.read()` (only relevant for certain types of data).
             batch_size (int): size of examples per mini-batch
             attn_debug (bool): enables the attention logging
+            control_signal_dict: (dict{control_signal_name -> contro_signal_value[List or int] }): # FIXME: only one batch is supported now
+
+
+        control_signal_dict = {
+            "tgt_ctrl_signal_0": '优品专辑_清单正文',
+            "tgt_ctrl_signal_1": '连衣裙_9719',
+            "tgt_ctrl_signal_2": 200,
+            "tgt_ctrl_signal_3": 100,
+        }
 
         Returns:
             (`list`, `list`)
 
             * all_scores is a list of `batch_size` lists of `n_best` scores
-            * all_predictions is a list of `batch_size` lists
-                of `n_best` predictions
+            * all_predictions is a list of `batch_size` lists of `n_best` predictions
         """
 
         if batch_size is None:
@@ -305,9 +305,7 @@ class Translator(object):
             shuffle=False
         )
 
-        xlation_builder = onmt.translate.TranslationBuilder(
-            data, self.fields, self.n_best, self.replace_unk, tgt
-        )
+        xlation_builder = onmt.translate.TranslationBuilder(data, self.fields, self.n_best, self.replace_unk, tgt)
 
         # Statistics
         counter = count(1)
@@ -320,9 +318,8 @@ class Translator(object):
         start_time = time.time()
 
         for batch in data_iter:
-            batch_data = self.translate_batch(
-                batch, data.src_vocabs, attn_debug
-            )
+            batch_data = self.translate_batch(batch, data.src_vocabs, attn_debug, control_signal_dict=control_signal_dict)
+
             translations = xlation_builder.from_batch(batch_data)
 
             for trans in translations:
@@ -333,8 +330,7 @@ class Translator(object):
                     gold_score_total += trans.gold_score
                     gold_words_total += len(trans.gold_sent) + 1
 
-                n_best_preds = [" ".join(pred)
-                                for pred in trans.pred_sents[:self.n_best]]
+                n_best_preds = [" ".join(pred) for pred in trans.pred_sents[:self.n_best]]
                 all_predictions += [n_best_preds]
                 self.out_file.write('\n'.join(n_best_preds) + '\n')
                 self.out_file.flush()
@@ -360,10 +356,8 @@ class Translator(object):
                     output = header_format.format("", *srcs) + '\n'
                     for word, row in zip(preds, attns):
                         max_index = row.index(max(row))
-                        row_format = row_format.replace(
-                            "{:>10.7f} ", "{:*>10.7f} ", max_index + 1)
-                        row_format = row_format.replace(
-                            "{:*>10.7f} ", "{:>10.7f} ", max_index)
+                        row_format = row_format.replace("{:>10.7f} ", "{:*>10.7f} ", max_index + 1)
+                        row_format = row_format.replace("{:*>10.7f} ", "{:>10.7f} ", max_index)
                         output += row_format.format(word, *row) + '\n'
                         row_format = "{:>10.10} " + "{:>10.7f} " * len(srcs)
                     os.write(1, output.encode('utf-8'))
@@ -371,12 +365,10 @@ class Translator(object):
         end_time = time.time()
 
         if self.report_score:
-            msg = self._report_score('PRED', pred_score_total,
-                                     pred_words_total)
+            msg = self._report_score('PRED', pred_score_total, pred_words_total)
             self._log(msg)
             if tgt is not None:
-                msg = self._report_score('GOLD', gold_score_total,
-                                         gold_words_total)
+                msg = self._report_score('GOLD', gold_score_total, gold_words_total)
                 self._log(msg)
                 if self.report_bleu:
                     msg = self._report_bleu(tgt)
@@ -388,15 +380,12 @@ class Translator(object):
         if self.report_time:
             total_time = end_time - start_time
             self._log("Total translation time (s): %f" % total_time)
-            self._log("Average translation time (s): %f" % (
-                total_time / len(all_predictions)))
-            self._log("Tokens per second: %f" % (
-                pred_words_total / total_time))
+            self._log("Average translation time (s): %f" % (total_time / len(all_predictions)))
+            self._log("Tokens per second: %f" % (pred_words_total / total_time))
 
         if self.dump_beam:
             import json
-            json.dump(self.translator.beam_accum,
-                      codecs.open(self.dump_beam, 'w', 'utf-8'))
+            json.dump(self.translator.beam_accum, codecs.open(self.dump_beam, 'w', 'utf-8'))
         return all_scores, all_predictions
 
     def _translate_random_sampling(
@@ -428,9 +417,8 @@ class Translator(object):
             "scores": None,
             "attention": None,
             "batch": batch,
-            "gold_score": self._gold_score(
-                batch, memory_bank, src_lengths, src_vocabs, use_src_map,
-                enc_states, batch_size, src)}
+            "gold_score": self._gold_score(batch, memory_bank, src_lengths, src_vocabs, use_src_map, enc_states, batch_size, src)
+        }
 
         memory_lengths = src_lengths
         src_map = batch.src_map if use_src_map else None
@@ -473,8 +461,7 @@ class Translator(object):
 
                 # Reorder states.
                 if isinstance(memory_bank, tuple):
-                    memory_bank = tuple(x.index_select(1, select_indices)
-                                        for x in memory_bank)
+                    memory_bank = tuple(x.index_select(1, select_indices) for x in memory_bank)
                 else:
                     memory_bank = memory_bank.index_select(1, select_indices)
 
@@ -491,7 +478,7 @@ class Translator(object):
         results["attention"] = random_sampler.attention
         return results
 
-    def translate_batch(self, batch, src_vocabs, attn_debug):
+    def translate_batch(self, batch, src_vocabs, attn_debug, control_signal_dict=None):
         """Translate a batch of sentences."""
         with torch.no_grad():
             if self.beam_size == 1:
@@ -511,14 +498,15 @@ class Translator(object):
                     min_length=self.min_length,
                     ratio=self.ratio,
                     n_best=self.n_best,
-                    return_attention=attn_debug or self.replace_unk)
+                    return_attention=attn_debug or self.replace_unk,
+                    control_signal_dict=control_signal_dict,
+                )
 
     def _run_encoder(self, batch):
         src, src_lengths = batch.src if isinstance(batch.src, tuple) \
             else (batch.src, None)
 
-        enc_states, memory_bank, src_lengths = self.model.encoder(
-            src, src_lengths)
+        enc_states, memory_bank, src_lengths = self.model.encoder(src, src_lengths)
         if src_lengths is None:
             assert not isinstance(memory_bank, tuple), \
                 'Ensemble decoding only supported for text data'
@@ -538,19 +526,20 @@ class Translator(object):
             src_map=None,
             step=None,
             batch_offset=None):
+        """
+        args:
+          decoder_in: (tgt_len, batch, nfeats)
+
+        """
         if self.copy_attn:
             # Turn any copied words into UNKs.
-            decoder_in = decoder_in.masked_fill(
-                decoder_in.gt(self._tgt_vocab_len - 1), self._tgt_unk_idx
-            )
+            decoder_in = decoder_in.masked_fill(decoder_in.gt(self._tgt_vocab_len - 1), self._tgt_unk_idx)
 
         # Decoder forward, takes [tgt_len, batch, nfeats] as input
         # and [src_len, batch, hidden] as memory_bank
         # in case of inference tgt_len = 1, batch = beam times batch_size
         # in case of Gold Scoring tgt_len = actual length, batch = 1 batch
-        dec_out, dec_attn = self.model.decoder(
-            decoder_in, memory_bank, memory_lengths=memory_lengths, step=step
-        )
+        dec_out, dec_attn = self.model.decoder(decoder_in, memory_bank, memory_lengths=memory_lengths, step=step)
 
         # Generator forward.
         if not self.copy_attn:
@@ -593,7 +582,9 @@ class Translator(object):
             min_length=0,
             ratio=0.,
             n_best=1,
-            return_attention=False):
+            return_attention=False,
+            control_signal_dict=None
+    ):
         # TODO: support these blacklisted features.
         assert not self.dump_beam
 
@@ -611,16 +602,13 @@ class Translator(object):
             "scores": None,
             "attention": None,
             "batch": batch,
-            "gold_score": self._gold_score(
-                batch, memory_bank, src_lengths, src_vocabs, use_src_map,
-                enc_states, batch_size, src)}
+            "gold_score": self._gold_score(batch, memory_bank, src_lengths, src_vocabs, use_src_map, enc_states, batch_size, src)
+        }
 
         # (2) Repeat src objects `beam_size` times.
         # We use batch_size x beam_size
-        src_map = (tile(batch.src_map, beam_size, dim=1)
-                   if use_src_map else None)
-        self.model.decoder.map_state(
-            lambda state, dim: tile(state, beam_size, dim=dim))
+        src_map = (tile(batch.src_map, beam_size, dim=1) if use_src_map else None)
+        self.model.decoder.map_state(lambda state, dim: tile(state, beam_size, dim=dim))
 
         if isinstance(memory_bank, tuple):
             memory_bank = tuple(tile(x, beam_size, dim=1) for x in memory_bank)
@@ -649,8 +637,43 @@ class Translator(object):
             exclusion_tokens=self._exclusion_idxs,
             memory_lengths=memory_lengths)
 
+        # construct control_singal (T=1, batch_size, n_feature-1): 优先用control_signal_dict, 其次用batch['tgt']
+        if 'tgt' in self.fields and len(self.fields['tgt'].fields) > 1:
+            if control_signal_dict:
+                control_signal_list = []
+                control_fields = self.fields['tgt'].fields[1:]  # [(field_name, field) for (field_name, field) in self.fields['tgt'].fields if field_name != 'tgt']
+                for field_name, field in control_fields:
+                    if isinstance(list(control_signal_dict.values())[0], list):  # 对batch中的所有sample, 一一控制
+                        if field.vocab:  # discrete signal
+                            element = [field.vocab.stoi[cs] for cs in control_signal_dict[field_name]]
+                        else:   # continuous signal
+                            element = [int(cs) for cs in control_signal_dict[field_name]]
+                        row = torch.from_numpy(np.array(element), dtype=torch.long, device=batch.src[0].device).unsqueeze(0).unsqueeze(-1)
+                    else:  # 对batch中的所有sample, 控制信号是相同的
+                        if field.vocab:  # discrete signal
+                            element = field.vocab.stoi[control_signal_dict[field_name]]
+                        else:   # continuous signal
+                            element = int(control_signal_dict[field_name])
+                        row = torch.full([1, batch.batch_size, 1], fill_value=element, dtype=torch.long, device=batch.src[0].device)
+                    control_signal_list.append(row)
+                control_signal = torch.cat(control_signal_list, -1)  # (T=1, batch_size, n_control_signal)
+            elif hasattr(batch, 'tgt'):
+                control_signal = batch.tgt[1, :, 1:]  # (T=1, batch_size, n_control_signal)
+            else:
+                raise ValueError("No control signal found")
+        else:
+            control_signal = None
+
+        if control_signal is not None:  # expand to (T=1, batch_size*beam_size, n_control_signal)
+            n_control_signal = control_signal.shape[-1]
+            control_signal_xbeamsize = control_signal.expand(beam_size, -1, -1).contiguous().view(1, -1, n_control_signal)
+
         for step in range(max_length):
-            decoder_input = beam.current_predictions.view(1, -1, 1)
+            decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size=batch_size*beam_size, n_feature)
+
+            if control_signal is not None:
+                tmp = control_signal_xbeamsize.index_select(1, beam.current_origin) if beam.is_finished.any() else control_signal_xbeamsize
+                decoder_input = torch.cat([decoder_input, tmp], dim=-1)
 
             log_probs, attn = self._decode_and_generate(
                 decoder_input,
@@ -674,8 +697,7 @@ class Translator(object):
             if any_beam_is_finished:
                 # Reorder states.
                 if isinstance(memory_bank, tuple):
-                    memory_bank = tuple(x.index_select(1, select_indices)
-                                        for x in memory_bank)
+                    memory_bank = tuple(x.index_select(1, select_indices) for x in memory_bank)
                 else:
                     memory_bank = memory_bank.index_select(1, select_indices)
 
@@ -684,12 +706,14 @@ class Translator(object):
                 if src_map is not None:
                     src_map = src_map.index_select(1, select_indices)
 
-            self.model.decoder.map_state(
-                lambda state, dim: state.index_select(dim, select_indices))
+            self.model.decoder.map_state(lambda state, dim: state.index_select(dim, select_indices))
 
         results["scores"] = beam.scores
         results["predictions"] = beam.predictions
         results["attention"] = beam.attention
+        results["control_signal"] = control_signal
+        # import ipdb
+        # ipdb.set_trace()
         return results
 
     # This is left in the code for now, but unsued
@@ -787,20 +811,19 @@ class Translator(object):
 
         return results
 
-    def _score_target(self, batch, memory_bank, src_lengths,
-                      src_vocabs, src_map):
+    def _score_target(self, batch, memory_bank, src_lengths, src_vocabs, src_map):
+        """
+        generate the target gold scores
+        """
         tgt = batch.tgt
         tgt_in = tgt[:-1]
 
-        log_probs, attn = self._decode_and_generate(
-            tgt_in, memory_bank, batch, src_vocabs,
-            memory_lengths=src_lengths, src_map=src_map)
+        log_probs, attn = self._decode_and_generate(tgt_in, memory_bank, batch, src_vocabs, memory_lengths=src_lengths, src_map=src_map)
 
         log_probs[:, :, self._tgt_pad_idx] = 0
         gold = tgt_in
-        gold_scores = log_probs.gather(2, gold)
+        gold_scores = log_probs.gather(2, gold[:, :, [0]])  # update for n_feature
         gold_scores = gold_scores.sum(dim=0).view(-1)
-
         return gold_scores
 
     def _report_score(self, name, score_total, words_total):

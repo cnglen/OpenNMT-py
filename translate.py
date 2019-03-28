@@ -18,8 +18,7 @@ def main(opt):
 
     translator = build_translator(opt, report_score=True)
     src_shards = split_corpus(opt.src, opt.shard_size)
-    tgt_shards = split_corpus(opt.tgt, opt.shard_size) \
-        if opt.tgt is not None else repeat(None)
+    tgt_shards = split_corpus(opt.tgt, opt.shard_size) if opt.tgt is not None else repeat(None)
     shard_pairs = zip(src_shards, tgt_shards)
 
     for i, (src_shard, tgt_shard) in enumerate(shard_pairs):
@@ -30,7 +29,7 @@ def main(opt):
             src_dir=opt.src_dir,
             batch_size=opt.batch_size,
             attn_debug=opt.attn_debug
-            )
+        )
 
 
 def _get_parser():

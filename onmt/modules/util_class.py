@@ -27,6 +27,9 @@ class Elementwise(nn.ModuleList):
           (seqlen, batch_size, ?)
         """
         inputs_ = [feat.squeeze(2) for feat in inputs.split(split_size=1, dim=2)]  # List[Tensor with shape (seqlen, batch_size)]
+        if len(self) != len(inputs_):
+            import ipdb
+            ipdb.set_trace()
         assert len(self) == len(inputs_)
         outputs = [f(x) for f, x in zip(self, inputs_)]
         if self.merge == 'first':
