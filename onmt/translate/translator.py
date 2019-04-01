@@ -527,16 +527,43 @@ class Translator(object):
             step=None,
             batch_offset=None):
         """
+
+        (tgt_len, batch, hidden) --> (tgt_len, batch, vocab_size)
+        - decode
+        - generate
+          - linear
+　　　　  - log
+          - softmax
+
+
+        If tgt_len=1:
+          decoder_in: (tgt_len=1, batch=batch_size*beam_size, nfeats)
+          memory_bank: (src_len, batch, hidden)
+
+          dec_out: (tgt_len=1, batch=batch_size*beam_size, hidden)
+          log_probs: (1, batch_size*beam_size, vocab_size) -squeeze(0)-> (batch_size*beam_size, vocab_size)
+
+        If tgt_len=actual_length:
+          decoder_in: (tgt_len, batch=batch_size, nfeats)
+          memory_bank: (src_len, batch, hidden)
+
+          dec_out: (tgt_len, batch=batch_size, hidden)
+          log_probs: (tgt_len, batch_size, vocab_size)
+
+
         args:
           decoder_in: (tgt_len, batch, nfeats)
+          memory_bank: src_len, batch, hidden
 
+        returns:
+          decoder_out: [batch_size*beam_size, V] when 1 step; [T, batch_size, V] when sentence in
+          attns:
         """
         if self.copy_attn:
             # Turn any copied words into UNKs.
             decoder_in = decoder_in.masked_fill(decoder_in.gt(self._tgt_vocab_len - 1), self._tgt_unk_idx)
 
-        # Decoder forward, takes [tgt_len, batch, nfeats] as input
-        # and [src_len, batch, hidden] as memory_bank
+        # Decoder forward, takes [tgt_len, batch, nfeats] as input, and [src_len, batch, hidden] as memory_bank
         # in case of inference tgt_len = 1, batch = beam times batch_size
         # in case of Gold Scoring tgt_len = actual length, batch = 1 batch
         dec_out, dec_attn = self.model.decoder(decoder_in, memory_bank, memory_lengths=memory_lengths, step=step)
@@ -672,7 +699,14 @@ class Translator(object):
             decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size=batch_size*beam_size, n_feature)
 
             if control_signal is not None:
+                # import ipdb
+                # ipdb.set_trace()
                 tmp = control_signal_xbeamsize.index_select(1, beam.current_origin) if beam.is_finished.any() else control_signal_xbeamsize
+
+                # if decoder_input.shape[0] != tmp.shape[0] or decoder_input.shape[1] != tmp.shape[1]:
+                #     import ipdb
+                #     ipdb.set_trace()
+
                 decoder_input = torch.cat([decoder_input, tmp], dim=-1)
 
             log_probs, attn = self._decode_and_generate(

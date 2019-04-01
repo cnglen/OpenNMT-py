@@ -15,17 +15,13 @@ class Beam(object):
         pad (int): Magic integer in output vocab.
         bos (int): Magic integer in output vocab.
         eos (int): Magic integer in output vocab.
-        n_best (int): Don't stop until at least this many beams have
-            reached EOS.
+        n_best (int): Don't stop until at least this many beams have reached EOS.
         cuda (bool): use gpu
         global_scorer (onmt.translate.GNMTGlobalScorer): Scorer instance.
-        min_length (int): Shortest acceptable generation, not counting
-            begin-of-sentence or end-of-sentence.
+        min_length (int): Shortest acceptable generation, not counting begin-of-sentence or end-of-sentence.
         stepwise_penalty (bool): Apply coverage penalty at every step.
-        block_ngram_repeat (int): Block beams where
-            ``block_ngram_repeat``-grams repeat.
-        exclusion_tokens (set[int]): If a gram contains any of these
-            token indices, it may repeat.
+        block_ngram_repeat (int): Block beams where ``block_ngram_repeat``-grams repeat.
+        exclusion_tokens (set[int]): If a gram contains any of these token indices, it may repeat.
     """
 
     def __init__(self, size, pad, bos, eos,
