@@ -5,6 +5,8 @@ import six
 import codecs
 import torch
 from torchtext.data import Field, RawField
+from torchtext.data.utils import dtype_to_attr
+
 
 from onmt.inputters.datareader_base import DataReaderBase
 from torchtext.data import Pipeline
@@ -107,6 +109,40 @@ class ContinuousField(RawField):
             return var, lengths
         return var
 
+
+    def __getstate__(self):
+        """
+        copied from Fields, to ContinuousField to be pickable for multiprocessing
+        """
+        str_type = dtype_to_attr(self.dtype)
+        attrs = {k: v for k, v in self.__dict__.items()}
+        attrs['dtype'] = str_type
+        return attrs
+
+    def __setstate__(self, state):
+        """
+        copied from Fields, to ContinuousField to be pickable for multiprocessing
+        """
+
+        state['dtype'] = getattr(torch, state['dtype'])
+        self.__dict__.update(state)
+
+    def __hash__(self):
+        """
+        copied from Fields, to ContinuousField to be pickable for multiprocessing
+        """
+
+        return 38
+
+    def __eq__(self, other):
+        """
+        copied from Fields, to ContinuousField to be pickable for multiprocessing
+        """
+
+        if not isinstance(other, RawField):
+            return False
+
+        return self.__dict__ == other.__dict__
 
 class TextDataReader(DataReaderBase):
     def read(self, sequences, side, _dir=None):
