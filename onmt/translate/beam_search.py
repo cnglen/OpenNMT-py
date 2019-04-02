@@ -57,11 +57,11 @@ class BeamSearch(DecodeStrategy):
         self.hypotheses = [[] for _ in range(batch_size)]
 
         # beam state
-        self.top_beam_finished = torch.zeros([batch_size], dtype=torch.uint8)
+        self.top_beam_finished = torch.zeros([batch_size], dtype=torch.uint8)  # ?
         self.best_scores = torch.full([batch_size], -1e10, dtype=torch.float, device=mb_device)
 
         self._batch_offset = torch.arange(batch_size, dtype=torch.long)
-        self._beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=mb_device)
+        self._beam_offset = torch.arange(0, batch_size * beam_size, step=beam_size, dtype=torch.long, device=mb_device)  # (batch_size, )
         self.topk_log_probs = torch.tensor([0.0] + [float("-inf")] * (beam_size - 1), device=mb_device).repeat(batch_size)
         self.select_indices = None
         self._memory_lengths = memory_lengths
@@ -80,19 +80,25 @@ class BeamSearch(DecodeStrategy):
         self._cov_pen = self.global_scorer.has_cov_pen
 
     @property
-    def current_predictions(self):
+    def current_predictions(self) -> "Long Tensor of (<=batch_size*beam_size)":
         """
-        [batch_size*beam_size]
+        last step of self.alive_seq
         """
         # alive_seq: [batch_size*beam_size, step]
         return self.alive_seq[:, -1]
 
     @property
     def current_origin(self):
+        """
+        ?
+        """
         return self.select_indices
 
     @property
     def current_backptr(self):
+        """
+        ?
+        """
         # for testing
         return self.select_indices.view(self.batch_size, self.beam_size).fmod(self.beam_size)
 
@@ -129,22 +135,22 @@ class BeamSearch(DecodeStrategy):
         # Flatten probs into a list of possibilities.
         curr_scores = log_probs / length_penalty
         curr_scores = curr_scores.reshape(_B, self.beam_size * vocab_size)
-        torch.topk(curr_scores,  self.beam_size, dim=-1, out=(self.topk_scores, self.topk_ids))  # (_B, k=beam_size), (_B, k=beam_size)
+        torch.topk(curr_scores, k=self.beam_size, dim=-1, out=(self.topk_scores, self.topk_ids))   # (_B, k=beam_size), (_B, k=beam_size)
+        # topk_ids范围[0, beam_size*V)
 
         # Recover log probs.
-        # Length penalty is just a scalar. It doesn't matter if it's applied
-        # before or after the topk.
+        # Length penalty is just a scalar. It doesn't matter if it's applied before or after the topk.
         torch.mul(self.topk_scores, length_penalty, out=self.topk_log_probs)
 
         # Resolve beam origin and map to batch index flat representation.
-        torch.div(self.topk_ids, vocab_size, out=self._batch_index)
-        self._batch_index += self._beam_offset[:_B].unsqueeze(1)
-        self.select_indices = self._batch_index.view(_B * self.beam_size)
+        torch.div(self.topk_ids, vocab_size, out=self._batch_index)  # (_B, beam_size), self._batch_index范围: [0, beam_size)
+        self._batch_index += self._beam_offset[:_B].unsqueeze(1)  # (_B, 1) -> (_B, beam_size), self._batch_index范围:
+        self.select_indices = self._batch_index.view(_B * self.beam_size)  # 当前step, 活下来的历史路径ID
 
-        self.topk_ids.fmod_(vocab_size)  # resolve true word ids
+        self.topk_ids.fmod_(vocab_size)  # resolve true word/token ids
 
-        # Append last prediction.
-        self.alive_seq = torch.cat([self.alive_seq.index_select(0, self.select_indices), self.topk_ids.view(_B * self.beam_size, 1)], -1)
+        # Append last prediction: select_indices的作用在此
+        self.alive_seq = torch.cat([self.alive_seq.index_select(0, self.select_indices), self.topk_ids.view(_B * self.beam_size, 1)], dim=-1)
         if self.return_attention or self._cov_pen:
             current_attn = attn.index_select(1, self.select_indices)
             if step == 1:
@@ -174,8 +180,6 @@ class BeamSearch(DecodeStrategy):
         """
         self.predictions
         """
-        import ipdb
-        ipdb.set_trace()
         # Penalize beams that finished.
         _B_old = self.topk_log_probs.shape[0]
         step = self.alive_seq.shape[-1]  # 1 greater than the step in advance

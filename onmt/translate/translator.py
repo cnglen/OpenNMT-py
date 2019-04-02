@@ -696,7 +696,7 @@ class Translator(object):
             control_signal_xbeamsize = control_signal.expand(beam_size, -1, -1).contiguous().view(1, -1, n_control_signal)
 
         for step in range(max_length):
-            decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size=batch_size*beam_size, n_feature)
+            decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size=batch_size*beam_size, n_feature=1) without considering control_signal
 
             if control_signal is not None:
                 # import ipdb
@@ -887,8 +887,5 @@ class Translator(object):
     def _report_rouge(self, tgt_path):
         import subprocess
         path = os.path.split(os.path.realpath(__file__))[0]
-        msg = subprocess.check_output(
-            "python %s/tools/test_rouge.py -r %s -c STDIN" % (path, tgt_path),
-            shell=True, stdin=self.out_file
-        ).decode("utf-8").strip()
+        msg = subprocess.check_output("python %s/tools/test_rouge.py -r %s -c STDIN" % (path, tgt_path), shell=True, stdin=self.out_file).decode("utf-8").strip()
         return msg
