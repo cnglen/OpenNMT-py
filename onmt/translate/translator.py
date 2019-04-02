@@ -283,6 +283,15 @@ class Translator(object):
             * all_predictions is a list of `batch_size` lists of `n_best` predictions
         """
 
+        # control_signal_dict = {
+        #     "tgt_ctrl_signal_0": '优品专辑_清单正文',
+        #     "tgt_ctrl_signal_1": '连衣裙_9719',
+        #     "tgt_ctrl_signal_2": 100,
+        #     "tgt_ctrl_signal_3": 50,
+        # }
+
+        # control_signal_dict = None
+
         if batch_size is None:
             raise ValueError("batch_size must be set")
 
@@ -319,6 +328,9 @@ class Translator(object):
 
         for batch in data_iter:
             batch_data = self.translate_batch(batch, data.src_vocabs, attn_debug, control_signal_dict=control_signal_dict)
+
+            # import ipdb
+            # ipdb.set_trace()
 
             translations = xlation_builder.from_batch(batch_data)
 
@@ -370,6 +382,7 @@ class Translator(object):
             if tgt is not None:
                 msg = self._report_score('GOLD', gold_score_total, gold_words_total)
                 self._log(msg)
+                # FIXME: use tgt_path not tgt
                 if self.report_bleu:
                     msg = self._report_bleu(tgt)
                     self._log(msg)
@@ -685,7 +698,7 @@ class Translator(object):
                     control_signal_list.append(row)
                 control_signal = torch.cat(control_signal_list, -1)  # (T=1, batch_size, n_control_signal)
             elif hasattr(batch, 'tgt'):
-                control_signal = batch.tgt[1, :, 1:]  # (T=1, batch_size, n_control_signal)
+                control_signal = (batch.tgt[1, :, 1:]).unsqueeze(0)  # (T=1, batch_size, n_control_signal)
             else:
                 raise ValueError("No control signal found")
         else:
@@ -693,21 +706,47 @@ class Translator(object):
 
         if control_signal is not None:  # expand to (T=1, batch_size*beam_size, n_control_signal)
             n_control_signal = control_signal.shape[-1]
-            control_signal_xbeamsize = control_signal.expand(beam_size, -1, -1).contiguous().view(1, -1, n_control_signal)
+            control_signal_xbeamsize = control_signal.squeeze().repeat(1, beam_size).reshape(-1, n_control_signal).unsqueeze(0)  # right
+            # control_signal_xbeamsize = control_signal.expand(beam_size, -1, -1).contiguous().view(1, -1, n_control_signal) # wrong
 
         for step in range(max_length):
-            decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size=batch_size*beam_size, n_feature=1) without considering control_signal
+
+            # decoder_input: (T=1, <=batch_size*beam_size, n_feature) 维度动态变化, 因为current_predictions只保留活下来的路径，且没有finshied的路径
+            decoder_input = beam.current_predictions.view(1, -1, 1)  # (T=1, batch_size<=batch_size*beam_size, n_feature=1) without considering control_signal
 
             if control_signal is not None:
                 # import ipdb
                 # ipdb.set_trace()
-                tmp = control_signal_xbeamsize.index_select(1, beam.current_origin) if beam.is_finished.any() else control_signal_xbeamsize
+
+                # FIXME: beam.current_origin时拍不对?
+                # (1, 150, 4), select (20)
+                # tmp = control_signal_xbeamsize.index_select(1, beam.current_origin) if beam.is_finished.any() else control_signal_xbeamsize
+
+                # # fixme: beam.current_origin的含义?
+                if beam.current_origin is not None:
+                    tmp = control_signal_xbeamsize.index_select(1, beam.current_origin)
+                else:
+                    tmp = control_signal_xbeamsize
 
                 # if decoder_input.shape[0] != tmp.shape[0] or decoder_input.shape[1] != tmp.shape[1]:
                 #     import ipdb
                 #     ipdb.set_trace()
 
                 decoder_input = torch.cat([decoder_input, tmp], dim=-1)
+
+            # if step == 4:
+            #     import ipdb
+            #     ipdb.set_trace()
+            #     data = [
+            #         decoder_input,
+            #         memory_bank,
+            #         memory_lengths,
+            #         src_map,
+            #         step,
+            #         beam._batch_offset
+            #     ]
+            #     with open("/tmp/b1.pkl", "wb") as f:
+            #         pickle.dump(data, f)
 
             log_probs, attn = self._decode_and_generate(
                 decoder_input,
@@ -718,6 +757,7 @@ class Translator(object):
                 src_map=src_map,
                 step=step,
                 batch_offset=beam._batch_offset)
+            # print("step={}, decoder_input={}, log_probs={}".format(step, decoder_input.shape, log_probs.shape))
 
             beam.advance(log_probs, attn)
             any_beam_is_finished = beam.is_finished.any()
@@ -864,9 +904,10 @@ class Translator(object):
         if words_total == 0:
             msg = "%s No words predicted" % (name,)
         else:
-            msg = ("%s AVG SCORE: %.4f, %s PPL: %.4f" % (
-                name, score_total / words_total,
-                name, math.exp(-score_total / words_total)))
+            try:
+                msg = ("%s AVG SCORE: %.4f, %s PPL: %.4f" % (name, score_total / words_total, name, math.exp(-score_total / words_total)))
+            except:
+                msg = "maybe overflow"
         return msg
 
     def _report_bleu(self, tgt_path):
@@ -875,7 +916,7 @@ class Translator(object):
         # Rollback pointer to the beginning.
         self.out_file.seek(0)
         print()
-
+        print("perl %s/tools/multi-bleu.perl %s" % (base_dir, tgt_path))
         res = subprocess.check_output(
             "perl %s/tools/multi-bleu.perl %s" % (base_dir, tgt_path),
             stdin=self.out_file, shell=True

@@ -75,7 +75,7 @@ class TranslationBuilder(object):
         tgt = batch.tgt[:, :, 0].index_select(1, perm) if self.has_tgt else None
 
         control_signal = translation_batch["control_signal"]
-        control_signal = control_signal.index_select(0, perm) if control_signal is not None else None
+        control_signal = control_signal.index_select(1, perm) if control_signal is not None else None
 
         translations = []
         for b in range(batch_size):
@@ -100,7 +100,7 @@ class TranslationBuilder(object):
 
             if control_signal is not None:
                 control_signal_fields = self.fields['tgt'].fields[1:]
-                control_signal_values = control_signal[inds[b] % batch_size].cpu().numpy()
+                control_signal_values = control_signal[:, inds[b] % batch_size, :].cpu().numpy().squeeze()
                 current_control_signal = [(name, field.vocab.itos[value]) if field.vocab else (name, value) for ((name, field), value) in zip(control_signal_fields, control_signal_values)]
 
             translation = Translation(

@@ -109,7 +109,10 @@ class BeamSearch(DecodeStrategy):
         args:
           log_probs: (batch_size*beam_size, V)
         """
-        print("step={}, log_probs.shape={}".format(len(self), log_probs.shape))
+        # import ipdb
+        # ipdb.set_trace()
+        # (batch_size=30*5=150, V)  -> (135, V), (85, V), (50, V), (45, V), (40, V), (30, V), (20, V)
+        # print("step={}, log_probs.shape={}".format(len(self), log_probs.shape))
         vocab_size = log_probs.size(-1)
 
         # using integer division to get an integer _B without casting
@@ -136,6 +139,10 @@ class BeamSearch(DecodeStrategy):
         curr_scores = log_probs / length_penalty
         curr_scores = curr_scores.reshape(_B, self.beam_size * vocab_size)
         torch.topk(curr_scores, k=self.beam_size, dim=-1, out=(self.topk_scores, self.topk_ids))   # (_B, k=beam_size), (_B, k=beam_size)
+        # print(self.topk_scores.min().item(), self.topk_scores.max().item())
+        # if abs(self.topk_scores.max().item()) > 100000 or step >= 420:
+        #     import ipdb
+        #     ipdb.set_trace()
         # topk_ids范围[0, beam_size*V)
 
         # Recover log probs.
@@ -175,6 +182,7 @@ class BeamSearch(DecodeStrategy):
 
         self.is_finished = self.topk_ids.eq(self.eos)
         self.ensure_max_length()
+        # print("step={}, {}".format(step, self.topk_log_probs))
 
     def update_finished(self):
         """
@@ -237,7 +245,10 @@ class BeamSearch(DecodeStrategy):
         self.topk_log_probs = self.topk_log_probs.index_select(0, non_finished)
         self._batch_index = self._batch_index.index_select(0, non_finished)
         self.select_indices = self._batch_index.view(_B_new * self.beam_size)
-        self.alive_seq = predictions.index_select(0, non_finished).view(-1, self.alive_seq.size(-1))
+        alive_shape_before = self.alive_seq.shape
+        self.alive_seq = predictions.index_select(0, non_finished).view(-1, self.alive_seq.size(-1))  # self.alive_seq size会缩水，去除已经finished的路径
+        alive_shape_after = self.alive_seq.shape
+        # print("alive_seq.shape={} -> {}".format(alive_shape_before, alive_shape_after))
         self.topk_scores = self.topk_scores.index_select(0, non_finished)
         self.topk_ids = self.topk_ids.index_select(0, non_finished)
         if self.alive_attn is not None:

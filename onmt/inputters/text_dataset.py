@@ -109,7 +109,6 @@ class ContinuousField(RawField):
             return var, lengths
         return var
 
-
     def __getstate__(self):
         """
         copied from Fields, to ContinuousField to be pickable for multiprocessing
@@ -124,7 +123,10 @@ class ContinuousField(RawField):
         copied from Fields, to ContinuousField to be pickable for multiprocessing
         """
 
-        state['dtype'] = getattr(torch, state['dtype'])
+        try:
+            state['dtype'] = getattr(torch, state['dtype'])
+        except:
+            pass
         self.__dict__.update(state)
 
     def __hash__(self):
@@ -143,6 +145,7 @@ class ContinuousField(RawField):
             return False
 
         return self.__dict__ == other.__dict__
+
 
 class TextDataReader(DataReaderBase):
     def read(self, sequences, side, _dir=None):
