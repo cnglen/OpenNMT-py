@@ -219,8 +219,7 @@ class GNMTGlobalScorer(object):
         self._validate(alpha, beta, length_penalty, coverage_penalty)
         self.alpha = alpha
         self.beta = beta
-        penalty_builder = penalties.PenaltyBuilder(coverage_penalty,
-                                                   length_penalty)
+        penalty_builder = penalties.PenaltyBuilder(coverage_penalty, length_penalty)
         self.has_cov_pen = penalty_builder.has_cov_pen
         # Term will be subtracted from probability
         self.cov_penalty = penalty_builder.coverage_penalty
@@ -258,8 +257,7 @@ class GNMTGlobalScorer(object):
         len_pen = self.length_penalty(len(beam.next_ys), self.alpha)
         normalized_probs = logprobs / len_pen
         if not beam.stepwise_penalty:
-            penalty = self.cov_penalty(beam.global_state["coverage"],
-                                       self.beta)
+            penalty = self.cov_penalty(beam.global_state["coverage"], self.beta)
             normalized_probs -= penalty
 
         return normalized_probs

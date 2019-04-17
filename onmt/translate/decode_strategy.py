@@ -95,15 +95,17 @@ class DecodeStrategy(object):
                 ngrams = set()
                 fail = False
                 gram = []
+
                 for i in range(cur_len - 1):
                     # Last n tokens, n = block_ngram_repeat
                     gram = (gram + [hyp[i].item()])[-self.block_ngram_repeat:]
                     # skip the blocking if any token in gram is excluded
-                    if set(gram) & self.exclusion_tokens:
+                    if set(gram) & self.exclusion_tokens:  # gram 和 self.exlusion_tokens有交集
                         continue
-                    if tuple(gram) in ngrams:
+                    if tuple(gram) in ngrams:  # gram出现过
                         fail = True
                     ngrams.add(tuple(gram))
+
                 if fail:
                     log_probs[path_idx] = -10e20
 

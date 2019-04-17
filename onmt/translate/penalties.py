@@ -18,8 +18,7 @@ class PenaltyBuilder(object):
             to 1 should force length penalty to be a no-op.
         coverage_penalty (callable[[FloatTensor, float], FloatTensor]):
             Calculates the coverage penalty.
-        length_penalty (callable[[int, float], float]): Calculates
-            the length penalty.
+        length_penalty (callable[[int, float], float]): Calculates the length penalty.
     """
 
     def __init__(self, cov_pen, length_pen):
@@ -40,8 +39,7 @@ class PenaltyBuilder(object):
         elif self._pen_is_none(cov_pen):
             return self.coverage_none
         else:
-            raise NotImplementedError("No '{:s}' coverage penalty.".format(
-                cov_pen))
+            raise NotImplementedError("No '{:s}' coverage penalty.".format(cov_pen))
 
     def _length_penalty(self, length_pen):
         if length_pen == "wu":
@@ -79,8 +77,7 @@ class PenaltyBuilder(object):
 
     def coverage_none(self, cov, beta=0.):
         """Returns zero as penalty"""
-        none = torch.zeros((1,), device=cov.device,
-                           dtype=torch.float)
+        none = torch.zeros((1,), device=cov.device, dtype=torch.float)
         if cov.dim() == 3:
             none = none.unsqueeze(0)
         return none
