@@ -206,8 +206,7 @@ class Optimizer(object):
         self._max_grad_norm = max_grad_norm or 0
         self._training_step = 1
         self._decay_step = 1
-        self._with_fp16_wrapper = (
-            optimizer.__class__.__name__ == "FP16_Optimizer")
+        self._with_fp16_wrapper = (optimizer.__class__.__name__ == "FP16_Optimizer")
 
     @classmethod
     def from_opt(cls, model, opt, checkpoint=None):

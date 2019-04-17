@@ -124,7 +124,7 @@ class ReportMgr(ReportMgrBase):
         self.maybe_log_tensorboard(report_stats,
                                    "progress",
                                    learning_rate,
-                                   self.progress_step)
+                                   step)                    # original: self.progress_step, changed to step by cnglen, 否则，从checkpoint训练后, 横坐标会清零
         report_stats = onmt.utils.Statistics()
 
         return report_stats

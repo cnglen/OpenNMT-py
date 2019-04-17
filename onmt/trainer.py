@@ -380,17 +380,12 @@ class Trainer(object):
         see `onmt.utils.ReportManagerBase.report_training` for doc
         """
         if self.report_manager is not None:
-            return self.report_manager.report_training(
-                step, num_steps, learning_rate, report_stats,
-                multigpu=self.n_gpu > 1)
+            return self.report_manager.report_training(step, num_steps, learning_rate, report_stats, multigpu=self.n_gpu > 1)
 
-    def _report_step(self, learning_rate, step, train_stats=None,
-                     valid_stats=None):
+    def _report_step(self, learning_rate, step, train_stats=None, valid_stats=None):
         """
         Simple function to report stats (if report_manager is set)
         see `onmt.utils.ReportManagerBase.report_step` for doc
         """
         if self.report_manager is not None:
-            return self.report_manager.report_step(
-                learning_rate, step, train_stats=train_stats,
-                valid_stats=valid_stats)
+            return self.report_manager.report_step(learning_rate, step, train_stats=train_stats, valid_stats=valid_stats)
