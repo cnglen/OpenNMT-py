@@ -1,0 +1,83 @@
+<form action="" method="post">
+  <!-- input data for predict: input_text, predict_paramter, control_signal,    -->
+
+  <div class="row">
+    <div name="input_text" class="col-md-6 mb-3">
+      <p>
+        输入文本(未分词)<br>
+        <textarea name="src_sentence" cols="80" rows="5" class="form-control"></textarea>
+      </p>
+    </div>
+
+    <div name="target_text" class="col-md-6 mb-3">
+      <p>
+        目标文本(可选)<br>
+        <textarea name="tgt_sentence" cols="80" rows="5" class="form-control"></textarea>
+      </p>
+    </div>
+  </div>
+
+  <hr class="mb-6">
+
+  <div name="predict_parameter">
+    <p>预测参数</br></p>
+    <div class="row">
+      <div class="col-md-6 mb-3">
+        <label for="beam_size">beam_size</label>
+        <input type="number" name="beam_size" value="", min="1", max="32" class="form-control"></input>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="n_best">n_best</label>
+        <input type="number" name="n_best" value="", min="1", max="32" class="form-control"></input>
+      </div>
+    </div>
+
+    <div class="row">
+
+      <div class="col-md-6 mb-3">
+        <label for="block_n_gram">block_n_gram</label>
+        <input type="number" name="block_n_gram" value="", min="0", max="8" class="form-control"></input>
+      </div>
+
+      <div class="col-md-6 mb-3">
+        <label for="replace_unk">replace_unk</label>
+        <br>
+        <input type="radio" name="replace_unk" value="False">False</input>
+        <br>
+        <input type="radio" name="replace_unk" value="True" checked >True</input>
+      </div>
+
+    </div>
+
+    <!-- <hr class="mb-2"> -->
+
+    <!-- <div class="row"> -->
+    <!--   <div class="col-md-6 mb-3"> -->
+    <!--     <label for="plot_attention">plot attention</label> -->
+    <!--     <br> -->
+    <!--     <input type="radio" name="plot_attention" value="False"  checked>False</input> -->
+    <!--     <br> -->
+    <!--     <input type="radio" name="plot_attention" value="True">True</input> -->
+    <!--   </div> -->
+
+    <!--   <div class="col-md-6 mb-3"> -->
+    <!--     <label for="force_not_repeat">force not repeat</label> -->
+    <!--     <br> -->
+    <!--     <input type="radio" name="force_not_repeat" value="False" >False</input> -->
+    <!--     <br> -->
+    <!--     <input type="radio" name="force_not_repeat" value="True" checked>True</input> -->
+    <!--   </div> -->
+    <!-- </div> -->
+
+  </div>
+
+  <hr class="mb-6">
+
+  {{control_signal_html|safe}}
+
+  <!-- <hr class="mb-6"> -->
+
+  <input class="btn btn-primary btn-lg btn-block" type="submit" value="提交"></input>
+
+</form>
